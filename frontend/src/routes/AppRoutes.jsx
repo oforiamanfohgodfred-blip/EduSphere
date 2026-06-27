@@ -2,6 +2,10 @@ import { Routes, Route, Navigate } from "react-router-dom";
 
 import Register from "../pages/auth/Register";
 
+import RegisterChoice from "../pages/auth/RegisterChoice";
+import RegisterOrganization from "../pages/auth/RegisterOrganization";
+import JoinOrganization from "../pages/auth/JoinOrganization";
+
 import Login from "../pages/auth/Login";
 
 import TeacherDashboard from "../pages/teacher/Dashboard";
@@ -26,9 +30,22 @@ import ProtectedRoute from "../components/ProtectedRoute";
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+   <Route path="/" element={<Login />} />
 
+<Route
+  path="/register"
+  element={<RegisterChoice />}
+/>
+
+<Route
+  path="/register-organization"
+  element={<RegisterOrganization />}
+/>
+
+<Route
+  path="/join-organization"
+  element={<JoinOrganization />}
+/>
       {/* Teacher Routes */}
       <Route
         path="/teacher/dashboard"
