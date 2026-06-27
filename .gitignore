@@ -21,3 +21,8 @@ Thumbs.db
 
 # npm
 npm-debug.log*
+# Microsoft Office temporary files
+~$*
+
+# Zip backups
+*.zip
