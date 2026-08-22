@@ -2,7 +2,6 @@ const express = require("express");
 const router = express.Router();
 
 const {
-  register,
   login,
 } = require("../controllers/authController");
 const { authenticateToken } = require("../middleware/authMiddleware");
@@ -13,9 +12,6 @@ router.get("/", (req, res) => {
     message: "Auth route is working!",
   });
 });
-
-// Register Route
-router.post("/register", register);
 
 // Login Route
 router.post("/login", login);

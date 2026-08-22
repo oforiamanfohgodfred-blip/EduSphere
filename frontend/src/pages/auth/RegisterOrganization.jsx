@@ -1,7 +1,10 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
 function RegisterOrganization() {
+const navigate = useNavigate();
+
   const [organizationName, setOrganizationName] = useState("");
   const [organizationType, setOrganizationType] = useState("School");
   const [country, setCountry] = useState("");
@@ -21,14 +24,12 @@ function RegisterOrganization() {
         }
       );
 
-      alert(
-        `Organization Registered!\n\nOrganization Code: ${res.data.organization_code}`
-      );
-
-      setOrganizationName("");
-      setCountry("");
-      setEmail("");
-      setPassword("");
+     navigate("/organization-success", {
+  state: {
+    organizationName,
+    organizationCode: res.data.organization_code,
+  },
+});
     } catch (error) {
       alert(
         error.response?.data?.message ||

@@ -1,42 +1,47 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import { useAuth } from "../../context/AuthContext";
 
 function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const handleLogin = async () => {
     try {
-      const response = await axios.post(
-        "http://localhost:5000/api/auth/login",
-        {
-          email,
-          password,
-        }
-      );
+      const data = await login(email, password);
 
-      // Save JWT Token
-      localStorage.setItem("token", response.data.token);
+      switch (data.role) {
+        case "admin":
+          navigate("/admin/dashboard");
+          break;
 
-      // Save User Info
-      localStorage.setItem(
-        "user",
-        JSON.stringify(response.data)
-      );
+        case "teacher":
+          navigate("/teacher/dashboard");
+          break;
 
-      // Redirect Based on Role
-      if (response.data.role === "teacher") {
-        navigate("/teacher/dashboard");
-      } else {
-        navigate("/student/dashboard");
+        case "student":
+          navigate("/student/dashboard");
+          break;
+
+        case "parent":
+          navigate("/parent/dashboard");
+          break;
+
+        case "guest":
+          navigate("/guest");
+          break;
+
+        default:
+          alert("Unknown user role.");
       }
+
     } catch (error) {
       alert(
         error.response?.data?.message ||
-          "Login failed."
+        "Login failed."
       );
     }
   };

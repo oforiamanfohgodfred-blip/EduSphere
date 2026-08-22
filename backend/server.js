@@ -6,6 +6,8 @@ require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const organizationRoutes = require("./routes/organizationRoutes");
 const userRoutes = require("./routes/userRoutes");
+const teacherRoutes = require("./routes/teacherRoutes");
+const studentRoutes = require("./routes/studentRoutes");
 
 const app = express();
 
@@ -17,6 +19,8 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/organizations", organizationRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/teachers", teacherRoutes);
+app.use("/api/students", studentRoutes);
 
 // Test Route
 app.get("/", (req, res) => {
