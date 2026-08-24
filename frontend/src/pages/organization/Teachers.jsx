@@ -1,119 +1,18 @@
 import { useEffect, useState } from "react";
 import api from "../../services/api";
+import "../../styles/dashboard.css";
+
+const emptyForm = { full_name: "", email: "", subject: "", phone: "", password: "" };
 
 function Teachers() {
-  const [teachers, setTeachers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    full_name: "",
-    email: "",
-    subject: "",
-    phone: "",
-    password: "",
-  });
-
-  const loadTeachers = async () => {
-    try {
-      setLoading(true);
-      setError("");
-      const response = await api.get("/teachers");
-      setTeachers(response.data);
-    } catch (err) {
-      setError(err.response?.data?.message || "Unable to load teachers.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadTeachers();
-  }, []);
-
-  const handleChange = (event) => {
-    setForm({ ...form, [event.target.name]: event.target.value });
-  };
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    try {
-      setSaving(true);
-      setError("");
-      await api.post("/teachers", form);
-      setForm({ full_name: "", email: "", subject: "", phone: "", password: "" });
-      await loadTeachers();
-    } catch (err) {
-      setError(err.response?.data?.message || "Unable to add teacher.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async (id) => {
-    if (!window.confirm("Delete this teacher?")) return;
-    try {
-      setError("");
-      await api.delete(`/teachers/${id}`);
-      setTeachers((current) => current.filter((teacher) => teacher.id !== id));
-    } catch (err) {
-      setError(err.response?.data?.message || "Unable to delete teacher.");
-    }
-  };
-
-  return (
-    <div className="dashboard-page">
-      <div className="page-header">
-        <div>
-          <h1>Teacher Management</h1>
-          <p>Add and manage teachers in your organization.</p>
-        </div>
-      </div>
-
-      {error && <div className="error-message">{error}</div>}
-
-      <section className="dashboard-card">
-        <h2>Add Teacher</h2>
-        <form onSubmit={handleSubmit} className="form-grid">
-          <input name="full_name" placeholder="Full name" value={form.full_name} onChange={handleChange} required />
-          <input name="email" type="email" placeholder="Email" value={form.email} onChange={handleChange} required />
-          <input name="subject" placeholder="Subject" value={form.subject} onChange={handleChange} />
-          <input name="phone" placeholder="Phone" value={form.phone} onChange={handleChange} />
-          <input name="password" type="password" placeholder="Temporary password" value={form.password} onChange={handleChange} required />
-          <button type="submit" disabled={saving}>{saving ? "Adding..." : "Add Teacher"}</button>
-        </form>
-      </section>
-
-      <section className="dashboard-card">
-        <h2>Teachers</h2>
-        {loading ? (
-          <p>Loading teachers...</p>
-        ) : teachers.length === 0 ? (
-          <p>No teachers have been added yet.</p>
-        ) : (
-          <div className="table-wrapper">
-            <table>
-              <thead>
-                <tr><th>ID</th><th>Name</th><th>Email</th><th>Subject</th><th>Phone</th><th>Action</th></tr>
-              </thead>
-              <tbody>
-                {teachers.map((teacher) => (
-                  <tr key={teacher.id}>
-                    <td>{teacher.teacher_id}</td>
-                    <td>{teacher.full_name}</td>
-                    <td>{teacher.email}</td>
-                    <td>{teacher.subject || "—"}</td>
-                    <td>{teacher.phone || "—"}</td>
-                    <td><button type="button" onClick={() => handleDelete(teacher.id)}>Delete</button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-    </div>
-  );
+  const [teachers, setTeachers] = useState([]); const [loading,setLoading]=useState(true); const [error,setError]=useState(""); const [saving,setSaving]=useState(false); const [form,setForm]=useState(emptyForm);
+  const loadTeachers=async()=>{try{setLoading(true);setError("");const r=await api.get("/teachers");setTeachers(r.data)}catch(e){setError(e.response?.data?.message||"Unable to load teachers.")}finally{setLoading(false)}};
+  useEffect(()=>{loadTeachers()},[]);
+  const handleChange=e=>setForm({...form,[e.target.name]:e.target.value});
+  const handleSubmit=async e=>{e.preventDefault();try{setSaving(true);setError("");await api.post("/teachers",form);setForm(emptyForm);await loadTeachers()}catch(err){setError(err.response?.data?.message||"Unable to add teacher.")}finally{setSaving(false)}};
+  const handleDelete=async id=>{if(!window.confirm("Delete this teacher?"))return;try{setError("");await api.delete(`/teachers/${id}`);setTeachers(c=>c.filter(t=>t.id!==id))}catch(e){setError(e.response?.data?.message||"Unable to delete teacher.")}};
+  return <div className="dashboard-page people-page"><div className="page-header"><div><span className="eyebrow">FACULTY DIRECTORY</span><h1>Teacher Management</h1><p>Build and manage the teaching team behind your organization.</p></div><div className="stat-card"><strong>{teachers.length}</strong><span>Active Teachers</span></div></div>{error&&<div className="error-message">{error}</div>}
+    <section className="dashboard-card people-form-card"><div className="card-heading"><div><h2>Add a Teacher</h2><p>Create a secure teacher account with their teaching details.</p></div><span className="section-accent">Faculty</span></div><form onSubmit={handleSubmit} className="class-form-grid"><label>Full name<input name="full_name" placeholder="e.g. Ama Mensah" value={form.full_name} onChange={handleChange} required/></label><label>Email address<input name="email" type="email" placeholder="teacher@example.com" value={form.email} onChange={handleChange} required/></label><label>Subject<input name="subject" placeholder="e.g. Mathematics" value={form.subject} onChange={handleChange}/></label><label>Phone<input name="phone" placeholder="Phone number" value={form.phone} onChange={handleChange}/></label><label>Temporary password<input name="password" type="password" placeholder="Create temporary password" value={form.password} onChange={handleChange} required/></label><div className="form-action"><button type="submit" disabled={saving}>{saving?"Creating...":"+ Add Teacher"}</button></div></form></section>
+    <section className="dashboard-card"><div className="card-heading"><div><h2>Teaching Team</h2><p>Teachers registered in your organization.</p></div></div>{loading?<div className="empty-state">Loading teaching team...</div>:teachers.length===0?<div className="empty-state"><strong>No teachers yet</strong><span>Add your first teacher above.</span></div>:<div className="people-grid">{teachers.map(t=><article className="person-card" key={t.id}><div className="person-avatar">{t.full_name?.charAt(0)?.toUpperCase()}</div><div className="person-info"><span className="person-id">{t.teacher_id}</span><h3>{t.full_name}</h3><p>{t.subject||"Teaching staff"}</p><small>{t.email}</small>{t.phone&&<small>{t.phone}</small>}</div><button className="person-delete" type="button" onClick={()=>handleDelete(t.id)}>Remove</button></article>)}</div>}</section></div>;
 }
-
 export default Teachers;
