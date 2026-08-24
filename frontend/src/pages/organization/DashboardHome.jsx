@@ -1,50 +1,5 @@
-function DashboardHome() {
-  return (
-    <div>
-      <h1>Organization Dashboard</h1>
-
-      <p>
-        Welcome to your EduSphere Organization.
-      </p>
-
-      <div className="stats-grid">
-
-        <div className="stat-card">
-          <h2>0</h2>
-          <p>Teachers</p>
-        </div>
-
-        <div className="stat-card">
-          <h2>0</h2>
-          <p>Students</p>
-        </div>
-
-        <div className="stat-card">
-          <h2>0</h2>
-          <p>Classes</p>
-        </div>
-
-        <div className="stat-card">
-          <h2>0</h2>
-          <p>Subjects</p>
-        </div>
-
-      </div>
-
-      <div
-        style={{
-          marginTop: "40px",
-          background: "#fff",
-          padding: "20px",
-          borderRadius: "10px",
-        }}
-      >
-        <h3>Recent Activity</h3>
-
-        <p>No activity yet.</p>
-      </div>
-    </div>
-  );
-}
-
+import { useEffect,useState } from "react";
+import api from "../../services/api";
+import "../../styles/dashboard.css";
+function DashboardHome(){const[counts,setCounts]=useState({teachers:0,students:0,classes:0,subjects:0});const[loading,setLoading]=useState(true);const[error,setError]=useState("");useEffect(()=>{let active=true;(async()=>{try{const[r1,r2,r3,r4]=await Promise.all([api.get("/teachers"),api.get("/students"),api.get("/classes"),api.get("/subjects")]);if(active)setCounts({teachers:r1.data.length,students:r2.data.length,classes:r3.data.length,subjects:r4.data.length})}catch(e){if(active)setError("Some dashboard figures could not be loaded.")}finally{if(active)setLoading(false)}})();return()=>{active=false}},[]);return <div className="dashboard-page home-page"><section className="welcome-hero"><div><span className="eyebrow light">EDUSPHERE ORGANIZATION HUB</span><h1>Welcome to your EduSphere 👋</h1><p>Your learning community starts here. Manage your teachers, students, classes and subjects from one organized workspace.</p><div className="welcome-actions"><span>Learn.</span><span>Share.</span><span>Achieve.</span></div></div><div className="hero-orbit"><div className="hero-book">EDU</div></div></section>{error&&<div className="error-message">{error}</div>}<div className="dashboard-home-stats"><div className="home-stat blue"><span>👨‍🏫</span><strong>{loading?"—":counts.teachers}</strong><small>Teachers</small></div><div className="home-stat green"><span>🎓</span><strong>{loading?"—":counts.students}</strong><small>Students</small></div><div className="home-stat orange"><span>🏫</span><strong>{loading?"—":counts.classes}</strong><small>Classes</small></div><div className="home-stat purple"><span>📚</span><strong>{loading?"—":counts.subjects}</strong><small>Subjects</small></div></div><section className="dashboard-card quick-start"><div className="card-heading"><div><h2>Your Learning Hub</h2><p>Everything you need to organize your school community.</p></div></div><div className="hub-grid"><div><b>👨‍🏫 Build your team</b><span>Add teachers and keep faculty information organized.</span></div><div><b>🎓 Grow your learners</b><span>Register students and keep them connected to classes.</span></div><div><b>🏫 Structure classes</b><span>Create the learning groups your organization needs.</span></div><div><b>📚 Plan subjects</b><span>Set up the subjects that shape your curriculum.</span></div></div></section></div>}
 export default DashboardHome;
