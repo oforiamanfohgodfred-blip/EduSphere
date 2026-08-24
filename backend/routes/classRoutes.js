@@ -1,15 +1,9 @@
 const express = require("express");
-const {
-  getClasses,
-  addClass,
-  updateClass,
-  deleteClass,
-} = require("../controllers/classController");
+const { getClasses, addClass, updateClass, deleteClass } = require("../controllers/classController");
 const { authenticateToken, authorizeRoles } = require("../middleware/authMiddleware");
 
 const router = express.Router();
-
-router.use(authenticateToken, authorizeRoles("organization", "admin"));
+router.use(authenticateToken, authorizeRoles("organization"));
 router.get("/", getClasses);
 router.post("/", addClass);
 router.put("/:id", updateClass);
