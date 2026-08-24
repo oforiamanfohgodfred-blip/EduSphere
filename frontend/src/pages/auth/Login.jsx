@@ -18,6 +18,10 @@ function Login() {
           navigate("/admin/dashboard");
           break;
 
+        case "organization":
+          navigate("/organization/dashboard");
+          break;
+
         case "teacher":
           navigate("/teacher/dashboard");
           break;
@@ -35,9 +39,8 @@ function Login() {
           break;
 
         default:
-          alert("Unknown user role.");
+          alert(`Unknown user role: ${data.role || "missing"}`);
       }
-
     } catch (error) {
       alert(
         error.response?.data?.message ||
@@ -74,16 +77,12 @@ function Login() {
           />
         </div>
 
-        <button
-          className="login-btn"
-          onClick={handleLogin}
-        >
+        <button className="login-btn" onClick={handleLogin}>
           Login
         </button>
 
         <p style={{ marginTop: "20px", textAlign: "center" }}>
-          Don't have an account?{" "}
-          <Link to="/register">Register</Link>
+          Don't have an account? <Link to="/register">Register</Link>
         </p>
       </div>
     </div>
