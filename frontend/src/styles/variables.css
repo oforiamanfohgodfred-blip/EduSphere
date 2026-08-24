@@ -1,0 +1,20 @@
+:root {
+  --edu-navy: #0b1f3a;
+  --edu-blue: #1769e0;
+  --edu-blue-dark: #0f4fbd;
+  --edu-blue-soft: #eaf2ff;
+  --edu-sky: #38a3ff;
+  --edu-green: #16a37a;
+  --edu-orange: #f59e0b;
+  --edu-red: #dc3545;
+  --edu-bg: #f4f7fb;
+  --edu-surface: #ffffff;
+  --edu-text: #172033;
+  --edu-muted: #6b7890;
+  --edu-border: #e2e8f2;
+  --edu-shadow: 0 10px 30px rgba(11, 31, 58, 0.08);
+  --edu-shadow-hover: 0 16px 36px rgba(11, 31, 58, 0.13);
+  --edu-radius: 16px;
+  --edu-radius-sm: 10px;
+  --edu-transition: 180ms ease;
+}
