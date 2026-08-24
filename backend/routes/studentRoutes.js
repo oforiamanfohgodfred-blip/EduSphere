@@ -2,8 +2,8 @@ const express = require("express");
 const router = express.Router();
 
 const {
-  protect,
-  authorize,
+  authenticateToken,
+  authorizeRoles,
 } = require("../middleware/authMiddleware");
 
 const {
@@ -14,50 +14,40 @@ const {
   deleteStudent,
 } = require("../controllers/studentController");
 
-
-// Get all students
+// Organization/admin access to student management
 router.get(
   "/",
-  protect,
-  authorize("admin"),
+  authenticateToken,
+  authorizeRoles("organization", "admin"),
   getStudents
 );
 
-
-// Add student
 router.post(
   "/",
-  protect,
-  authorize("admin"),
+  authenticateToken,
+  authorizeRoles("organization", "admin"),
   addStudent
 );
 
-
-// Get single student
 router.get(
   "/:id",
-  protect,
-  authorize("admin"),
+  authenticateToken,
+  authorizeRoles("organization", "admin"),
   getStudentById
 );
 
-
-// Update student
 router.put(
   "/:id",
-  protect,
-  authorize("admin"),
+  authenticateToken,
+  authorizeRoles("organization", "admin"),
   updateStudent
 );
 
-
-// Delete student
 router.delete(
   "/:id",
-  protect,
-  authorize("admin"),
+  authenticateToken,
+  authorizeRoles("organization", "admin"),
   deleteStudent
 );
-
 
 module.exports = router;
