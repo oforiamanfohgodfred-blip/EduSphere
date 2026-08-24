@@ -9,6 +9,7 @@ const userRoutes = require("./routes/userRoutes");
 const teacherRoutes = require("./routes/teacherRoutes");
 const studentRoutes = require("./routes/studentRoutes");
 const classRoutes = require("./routes/classRoutes");
+const subjectRoutes = require("./routes/subjectRoutes");
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/teachers", teacherRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/classes", classRoutes);
+app.use("/api/subjects", subjectRoutes);
 
 app.get("/", (req, res) => {
   res.send("🚀 EduSphere Backend is Running...");
