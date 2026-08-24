@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
   FaHome,
   FaChalkboardTeacher,
@@ -8,42 +8,66 @@ import {
   FaCog,
   FaSignOutAlt,
 } from "react-icons/fa";
+import { useAuth } from "../../context/AuthContext";
+
+const links = [
+  ["/organization/dashboard", "Dashboard", FaHome],
+  ["/organization/teachers", "Teachers", FaChalkboardTeacher],
+  ["/organization/students", "Students", FaUserGraduate],
+  ["/organization/classes", "Classes", FaSchool],
+  ["/organization/subjects", "Subjects", FaBook],
+  ["/organization/settings", "Settings", FaCog],
+];
 
 function OrganizationSidebar() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const organizationName = user?.organization_name || user?.organization?.name || "Organization Hub";
+
+  const handleLogout = () => {
+    logout();
+    navigate("/");
+  };
+
   return (
-    <div className="sidebar">
-      <h2 className="sidebar-logo">EduSphere</h2>
+    <aside className="org-sidebar">
+      <div className="org-brand">
+        <div className="org-brand-mark">E</div>
+        <div>
+          <div className="org-brand-name">EduSphere</div>
+          <div className="org-brand-subtitle">Learn. Share. Achieve.</div>
+        </div>
+      </div>
 
-      <nav className="sidebar-menu">
-        <Link to="/organization/dashboard" className="sidebar-link">
-          <FaHome /> <span>Dashboard</span>
-        </Link>
+      <div className="org-workspace">
+        <span>ORGANIZATION</span>
+        <strong>{organizationName}</strong>
+      </div>
 
-        <Link to="/organization/teachers" className="sidebar-link">
-          <FaChalkboardTeacher /> <span>Teachers</span>
-        </Link>
-
-        <Link to="/organization/students" className="sidebar-link">
-          <FaUserGraduate /> <span>Students</span>
-        </Link>
-
-        <Link to="/organization/classes" className="sidebar-link">
-          <FaSchool /> <span>Classes</span>
-        </Link>
-
-        <Link to="/organization/subjects" className="sidebar-link">
-          <FaBook /> <span>Subjects</span>
-        </Link>
-
-        <Link to="/organization/settings" className="sidebar-link">
-          <FaCog /> <span>Settings</span>
-        </Link>
-
-        <Link to="/" className="sidebar-link logout">
-          <FaSignOutAlt /> <span>Logout</span>
-        </Link>
+      <nav className="org-nav" aria-label="Organization navigation">
+        {links.map(([to, label, Icon]) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={label === "Dashboard"}
+            className={({ isActive }) => `org-nav-link${isActive ? " active" : ""}`}
+          >
+            <span className="org-nav-icon"><Icon /></span>
+            <span>{label}</span>
+          </NavLink>
+        ))}
       </nav>
-    </div>
+
+      <div className="org-sidebar-footer">
+        <div className="org-sidebar-tip">
+          <span>🎓</span>
+          <div><strong>Keep learning</strong><small>Build a stronger school community.</small></div>
+        </div>
+        <button type="button" className="org-logout" onClick={handleLogout}>
+          <FaSignOutAlt /> <span>Logout</span>
+        </button>
+      </div>
+    </aside>
   );
 }
 
