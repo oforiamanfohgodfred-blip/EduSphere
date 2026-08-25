@@ -1,1 +1,0 @@
-VLE class-space endpoints are implemented in the class controller.
