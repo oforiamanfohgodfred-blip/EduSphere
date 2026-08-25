@@ -7,7 +7,8 @@ const jwt = require("jsonwebtoken");
 // =======================
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    const password = String(req.body?.password || "");
 
     // Validate request
     if (!email || !password) {
@@ -16,12 +17,21 @@ const login = async (req, res) => {
       });
     }
 
-    // Find user
+    // Find the account in the shared authentication table.
     const userResult = await pool.query(
       `
-      SELECT *
+      SELECT
+        id,
+        organization_id,
+        email,
+        password,
+        role,
+        reference_id,
+        is_active,
+        created_at
       FROM users
-      WHERE email = $1
+      WHERE LOWER(email) = $1
+      LIMIT 1
       `,
       [email]
     );
@@ -34,18 +44,15 @@ const login = async (req, res) => {
 
     const user = userResult.rows[0];
 
-    // Check active account
-    if (!user.is_active) {
+    // Check active account before allowing authentication.
+    if (user.is_active === false) {
       return res.status(403).json({
         message: "This account has been deactivated.",
       });
     }
 
-    // Verify password
-    const validPassword = await bcrypt.compare(
-      password,
-      user.password
-    );
+    // Verify password.
+    const validPassword = await bcrypt.compare(password, user.password);
 
     if (!validPassword) {
       return res.status(401).json({
@@ -53,7 +60,7 @@ const login = async (req, res) => {
       });
     }
 
-    // Load profile based on role
+    // Load the correct profile for the authenticated role.
     let profile = null;
 
     if (user.role === "teacher") {
@@ -70,14 +77,14 @@ const login = async (req, res) => {
           created_at
         FROM teachers
         WHERE id = $1
+          AND organization_id = $2
+        LIMIT 1
         `,
-        [user.reference_id]
+        [user.reference_id, user.organization_id]
       );
 
-      profile = teacher.rows[0];
-    }
-
-    else if (user.role === "student") {
+      profile = teacher.rows[0] || null;
+    } else if (user.role === "student") {
       const student = await pool.query(
         `
         SELECT
@@ -93,20 +100,42 @@ const login = async (req, res) => {
           created_at
         FROM students
         WHERE id = $1
+          AND organization_id = $2
+        LIMIT 1
+        `,
+        [user.reference_id, user.organization_id]
+      );
+
+      profile = student.rows[0] || null;
+    } else if (user.role === "organization") {
+      const organization = await pool.query(
+        `
+        SELECT
+          id,
+          organization_name,
+          organization_code,
+          organization_type,
+          email,
+          country,
+          created_at
+        FROM organizations
+        WHERE id = $1
+        LIMIT 1
         `,
         [user.reference_id]
       );
 
-      profile = student.rows[0];
+      profile = organization.rows[0] || null;
     }
 
-    // Generate JWT
+    // Generate the shared EduSphere JWT.
     const token = jwt.sign(
       {
         userId: user.id,
         organization_id: user.organization_id,
         role: user.role,
         reference_id: user.reference_id,
+        email: user.email,
       },
       process.env.JWT_SECRET,
       {
@@ -120,9 +149,8 @@ const login = async (req, res) => {
       role: user.role,
       profile,
     });
-
   } catch (error) {
-    console.error(error);
+    console.error("Login error:", error);
 
     res.status(500).json({
       message: "Server Error.",
