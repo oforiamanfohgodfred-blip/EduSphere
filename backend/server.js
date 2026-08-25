@@ -10,6 +10,7 @@ const teacherRoutes = require("./routes/teacherRoutes");
 const teacherClassRoutes = require("./routes/teacherClassRoutes");
 const teacherLearningRoutes = require("./routes/teacherLearningRoutes");
 const studentRoutes = require("./routes/studentRoutes");
+const studentLearningRoutes = require("./routes/studentLearningRoutes");
 const classRoutes = require("./routes/classRoutes");
 const subjectRoutes = require("./routes/subjectRoutes");
 
@@ -25,6 +26,7 @@ app.use("/api/teachers", teacherRoutes);
 app.use("/api/teachers/classes", teacherClassRoutes);
 app.use("/api/teachers/learning", teacherLearningRoutes);
 app.use("/api/students", studentRoutes);
+app.use("/api/students/learning", studentLearningRoutes);
 app.use("/api/classes", classRoutes);
 app.use("/api/subjects", subjectRoutes);
 
