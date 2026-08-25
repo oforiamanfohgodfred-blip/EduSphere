@@ -1,1 +1,0 @@
-VLE class routes are part of the functional class implementation.
