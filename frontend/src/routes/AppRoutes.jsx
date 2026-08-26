@@ -5,6 +5,8 @@ import RegisterOrganization from "../pages/auth/RegisterOrganization";
 import JoinOrganization from "../pages/auth/JoinOrganization";
 import OrganizationSuccess from "../pages/auth/OrganizationSuccess";
 import TeacherDashboard from "../pages/teacher/Dashboard";
+import TeacherClassSpace from "../pages/teacher/ClassSpace";
+import StaffChat from "../pages/teacher/StaffChat";
 import Assignments from "../pages/teacher/Assignments";
 import Timetables from "../pages/teacher/Timetables";
 import ExamNotifications from "../pages/teacher/ExamNotifications";
@@ -40,6 +42,8 @@ function AppRoutes() {
       <Route path="/organization-success" element={<OrganizationSuccess />} />
 
       <Route path="/teacher/dashboard" element={p("teacher", <TeacherDashboard />)} />
+      <Route path="/teacher/classes/:id" element={p("teacher", <TeacherClassSpace />)} />
+      <Route path="/teacher/staff-chat" element={p("teacher", <StaffChat />)} />
       <Route path="/teacher/assignments" element={p("teacher", <Assignments />)} />
       <Route path="/teacher/timetables" element={p("teacher", <Timetables />)} />
       <Route path="/teacher/exams" element={p("teacher", <ExamNotifications />)} />
