@@ -6,6 +6,7 @@ import App from "./App";
 import { AuthProvider } from "./context/AuthContext";
 
 import "./index.css";
+import "./styles/vle.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
