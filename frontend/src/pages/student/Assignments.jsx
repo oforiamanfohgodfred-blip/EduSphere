@@ -1,50 +1,12 @@
 import { useEffect, useState } from "react";
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import api from "../../services/api";
-
 function Assignments() {
-  const [assignments, setAssignments] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [answer, setAnswer] = useState("");
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => { load(); }, []);
-  const load = async () => {
-    try {
-      const { data } = await api.get("/student-learning/space");
-      setAssignments(data.assignments || []);
-    } catch (e) { setMessage(e.response?.data?.message || "Unable to load assignments."); }
-    finally { setLoading(false); }
-  };
-  const open = async (id) => {
-    try {
-      const { data } = await api.get(`/student-learning/assignments/${id}`);
-      setSelected(data); setAnswer(data.answer_text || ""); setMessage("");
-    } catch (e) { setMessage(e.response?.data?.message || "Unable to open assignment."); }
-  };
-  const submit = async (e) => {
-    e.preventDefault();
-    if (!answer.trim()) return setMessage("Write an answer before submitting.");
-    try {
-      setSubmitting(true); setMessage("");
-      const { data } = await api.post(`/student-learning/assignments/${selected.id}/submit`, { answer_text: answer });
-      setSelected({ ...selected, ...data, answer_text: answer, submitted_at: data.submitted_at });
-      setMessage("Assignment submitted successfully.");
-      await load();
-    } catch (e) { setMessage(e.response?.data?.message || "Unable to submit assignment."); }
-    finally { setSubmitting(false); }
-  };
-  return <DashboardLayout role="student"><div className="vle-page-shell">
-    <div className="page-header"><div><span className="eyebrow">MY LEARNING</span><h1>Assignments</h1><p>Assignments published to your class by your teachers.</p></div></div>
-    {message && <div className="error-message">{message}</div>}
-    {loading ? <div className="empty-state">Loading assignments...</div> : <div className="dashboard-sections">
-      <section className="dashboard-card"><div className="card-heading"><div><span className="eyebrow">CLASSWORK</span><h2>My Assignments</h2></div></div>
-        {assignments.length ? assignments.map((a) => <button type="button" key={a.id} className="teacher-class-option" onClick={() => open(a.id)}><span><strong>{a.title}</strong><small>{a.subject_name} · {a.teacher_name} · Due: {a.due_at ? new Date(a.due_at).toLocaleString() : "No due date"}</small></span></button>) : <div className="empty-state"><strong>No assignments yet</strong><span>Your teachers have not published classwork yet.</span></div>}
-      </section>
-      <section className="dashboard-card">{selected ? <><span className="eyebrow">{selected.subject_name}</span><h2>{selected.title}</h2><p>{selected.instructions || "No additional instructions."}</p><small>Teacher: {selected.teacher_name} · Max score: {selected.max_score}</small><form onSubmit={submit} className="class-form-grid"><label className="wide-field">Your answer<textarea value={answer} onChange={(e) => setAnswer(e.target.value)} rows="9" placeholder="Type your response here..." /></label><div className="form-action"><button type="submit" disabled={submitting}>{submitting ? "Submitting..." : selected.submission_id ? "Update Submission" : "Submit Assignment"}</button></div></form>{selected.score != null && <div className="vle-chip-list"><span className="vle-chip">Score: {selected.score}/{selected.max_score}</span>{selected.feedback && <span className="vle-chip">Feedback: {selected.feedback}</span>}</div>}</> : <div className="empty-state"><strong>Select an assignment</strong><span>Choose classwork to view instructions and submit your answer.</span></div>}</section>
-    </div>}
-  </div></DashboardLayout>;
+ const [assignments,setAssignments]=useState([]),[selected,setSelected]=useState(null),[answer,setAnswer]=useState(""),[message,setMessage]=useState(""),[loading,setLoading]=useState(true),[submitting,setSubmitting]=useState(false);
+ useEffect(()=>{load()},[]);
+ const load=async()=>{try{const {data}=await api.get("/students/learning/space");setAssignments(data.assignments||[])}catch(e){setMessage(e.response?.data?.message||"Unable to load assignments.")}finally{setLoading(false)}};
+ const open=async id=>{try{const {data}=await api.get(`/students/learning/assignments/${id}`);setSelected(data);setAnswer(data.answer_text||"");setMessage("")}catch(e){setMessage(e.response?.data?.message||"Unable to open assignment.")}};
+ const submit=async e=>{e.preventDefault();if(!answer.trim())return setMessage("Write an answer before submitting.");try{setSubmitting(true);setMessage("");const {data}=await api.post(`/students/learning/assignments/${selected.id}/submit`,{answer_text:answer});setSelected({...selected,...data,answer_text:answer});setMessage("Assignment submitted successfully.");await load()}catch(e){setMessage(e.response?.data?.message||"Unable to submit assignment.")}finally{setSubmitting(false)}};
+ return <DashboardLayout role="student"><div className="vle-page-shell"><div className="page-header"><div><span className="eyebrow">MY LEARNING</span><h1>Assignments</h1><p>Assignments published to your class by your teachers.</p></div></div>{message&&<div className="error-message">{message}</div>}{loading?<div className="empty-state">Loading assignments...</div>:<div className="dashboard-sections"><section className="dashboard-card"><div className="card-heading"><div><span className="eyebrow">CLASSWORK</span><h2>My Assignments</h2></div></div>{assignments.length?assignments.map(a=><button type="button" key={a.id} className="teacher-class-option" onClick={()=>open(a.id)}><span><strong>{a.title}</strong><small>{a.subject_name} · {a.teacher_name} · Due: {a.due_at?new Date(a.due_at).toLocaleString():"No due date"}</small></span></button>):<div className="empty-state"><strong>No assignments yet</strong><span>Your teachers have not published classwork yet.</span></div>}</section><section className="dashboard-card">{selected?<><span className="eyebrow">{selected.subject_name}</span><h2>{selected.title}</h2><p>{selected.instructions||"No additional instructions."}</p><small>Teacher: {selected.teacher_name} · Max score: {selected.max_score}</small><form onSubmit={submit} className="class-form-grid"><label className="wide-field">Your answer<textarea value={answer} onChange={e=>setAnswer(e.target.value)} rows="9" placeholder="Type your response here..."/></label><div className="form-action"><button type="submit" disabled={submitting}>{submitting?"Submitting...":selected.submission_id?"Update Submission":"Submit Assignment"}</button></div></form>{selected.score!=null&&<div className="vle-chip-list"><span className="vle-chip">Score: {selected.score}/{selected.max_score}</span>{selected.feedback&&<span className="vle-chip">Feedback: {selected.feedback}</span>}</div>}</>:<div className="empty-state"><strong>Select an assignment</strong><span>Choose classwork to view instructions and submit your answer.</span></div>}</section></div>}</div></DashboardLayout>;
 }
 export default Assignments;
