@@ -9,6 +9,7 @@ import {
   FaUser,
   FaSignOutAlt,
   FaChalkboard,
+  FaComments,
 } from "react-icons/fa";
 
 function Sidebar({ role = "teacher" }) {
@@ -21,6 +22,7 @@ function Sidebar({ role = "teacher" }) {
   const teacherLinks = [
     { name: "Dashboard", path: "/teacher/dashboard", icon: <FaHome /> },
     { name: "My Classes", path: "/teacher/dashboard", icon: <FaChalkboard /> },
+    { name: "Staff Chat", path: "/teacher/staff-chat", icon: <FaComments /> },
     { name: "Assignments", path: "/teacher/assignments", icon: <FaClipboardList /> },
     { name: "Timetables", path: "/teacher/timetables", icon: <FaCalendarAlt /> },
     { name: "Exam Notifications", path: "/teacher/exams", icon: <FaBook /> },
@@ -52,7 +54,7 @@ function Sidebar({ role = "teacher" }) {
             <span>{link.name}</span>
           </Link>
         ))}
-        <button onClick={handleLogout} className="sidebar-link logout" style={{ border: "none", background: "none", width: "100%", cursor: "pointer", textAlign: "left" }}>
+        <button onClick={handleLogout} className="sidebar-link logout">
           <span className="sidebar-icon"><FaSignOutAlt /></span>
           <span>Logout</span>
         </button>
