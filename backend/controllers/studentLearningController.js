@@ -19,10 +19,29 @@ const getMyLearningSpace = async (req, res) => {
     const student = await getStudentContext(studentId, organizationId);
     if (!student || !student.class_id) return res.status(404).json({ message: "Student class not found." });
 
-    const [classResult, assignments, resources, announcements, meetings] = await Promise.all([
+    const [classResult, students, teachers, subjects, assignments, resources, announcements, meetings] = await Promise.all([
       pool.query(
         `SELECT c.id, c.name, c.code, c.description, c.academic_year
          FROM classes c WHERE c.id=$1 AND c.organization_id=$2`,
+        [student.class_id, organizationId]
+      ),
+      pool.query(
+        `SELECT id, student_id, full_name, email
+         FROM students WHERE class_id=$1 AND organization_id=$2 ORDER BY full_name`,
+        [student.class_id, organizationId]
+      ),
+      pool.query(
+        `SELECT t.id, t.teacher_id, t.full_name, t.subject
+         FROM class_teachers ct
+         JOIN teachers t ON t.id=ct.teacher_id
+         WHERE ct.class_id=$1 AND t.organization_id=$2 ORDER BY t.full_name`,
+        [student.class_id, organizationId]
+      ),
+      pool.query(
+        `SELECT s.id, s.name, s.code, s.description
+         FROM class_subjects cs
+         JOIN subjects s ON s.id=cs.subject_id
+         WHERE cs.class_id=$1 AND s.organization_id=$2 ORDER BY s.name`,
         [student.class_id, organizationId]
       ),
       pool.query(
@@ -65,6 +84,9 @@ const getMyLearningSpace = async (req, res) => {
     res.json({
       student,
       class: classResult.rows[0] || null,
+      students: students.rows,
+      teachers: teachers.rows,
+      subjects: subjects.rows,
       assignments: assignments.rows,
       resources: resources.rows,
       announcements: announcements.rows,
