@@ -1,89 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import DashboardLayout from "../../components/layout/DashboardLayout";
+import api from "../../services/api";
+import "../../styles/vle.css";
 
 function Resources() {
-  const [resourceTitle, setResourceTitle] = useState("");
-  const [resources, setResources] = useState([]);
-
-  const handleUpload = () => {
-    if (!resourceTitle) {
-      alert("Please enter a resource title");
-      return;
-    }
-
-    const newResource = {
-      id: Date.now(),
-      title: resourceTitle,
-      uploadedAt: new Date().toLocaleDateString(),
-    };
-
-    setResources([newResource, ...resources]);
-    setResourceTitle("");
-  };
-
-  const handleDelete = (id) => {
-    setResources(
-      resources.filter((resource) => resource.id !== id)
-    );
-  };
-
-  return (
-    <DashboardLayout role="teacher">
-      <h1>Resources</h1>
-
-      <div className="assignment-form">
-        <input
-          type="text"
-          placeholder="Resource Title"
-          value={resourceTitle}
-          onChange={(e) =>
-            setResourceTitle(e.target.value)
-          }
-        />
-
-        <input type="file" />
-
-        <button
-          className="action-btn"
-          onClick={handleUpload}
-        >
-          Upload Resource
-        </button>
-      </div>
-
-      <div className="section-card">
-        <h2>Uploaded Resources</h2>
-
-        {resources.length === 0 ? (
-          <p>No resources uploaded yet.</p>
-        ) : (
-          resources.map((resource) => (
-            <div
-              key={resource.id}
-              className="assignment-item"
-            >
-              <h3>{resource.title}</h3>
-
-              <small>
-                Uploaded: {resource.uploadedAt}
-              </small>
-
-              <br />
-
-              <button
-                className="delete-btn"
-                onClick={() =>
-                  handleDelete(resource.id)
-                }
-              >
-                Delete
-              </button>
-            </div>
-          ))
-        )}
-      </div>
-    </DashboardLayout>
-  );
+  const [classes,setClasses]=useState([]),[resources,setResources]=useState([]);
+  const [classId,setClassId]=useState(""),[title,setTitle]=useState(""),[url,setUrl]=useState(""),[description,setDescription]=useState(""),[type,setType]=useState("link");
+  const [loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[error,setError]=useState("");
+  const load=async()=>{try{setLoading(true);const r=await api.get("/teachers/classes");const cs=r.data||[];setClasses(cs);if(cs[0])setClassId(String(cs[0].id));const all=[];for(const c of cs){try{const x=await api.get(`/teachers/learning/classes/${c.id}/resources`);(x.data||[]).forEach(v=>all.push({...v,class_name:c.name}));}catch(_){}}setResources(all);}catch(e){setError(e.response?.data?.message||"Unable to load resources.");}finally{setLoading(false);}};
+  useEffect(()=>{load();},[]);
+  const save=async(e)=>{e.preventDefault();if(!classId||!title.trim()||!url.trim())return setError("Select a class and provide a title and resource link.");try{setSaving(true);setError("");await api.post("/teachers/learning/resources",{class_id:+classId,title,description,resource_url:url,resource_type:type});setTitle("");setUrl("");setDescription("");await load();}catch(e){setError(e.response?.data?.message||"Unable to save resource.");}finally{setSaving(false);}};
+  return <DashboardLayout role="teacher"><div className="vle-page-shell"><div className="page-header"><div><span className="eyebrow">CLASS MATERIALS</span><h1>Resources</h1><p>Share learning materials with the classes you actually teach.</p></div></div>{error&&<div className="error-message">{error}</div>}<section className="dashboard-card vle-form-card"><div className="card-heading"><div><span className="eyebrow">PUBLISH MATERIAL</span><h2>Add Resource</h2><p>Resources are attached to the selected class and stored in the VLE.</p></div></div><form onSubmit={save} className="class-form-grid"><label>Class<select value={classId} onChange={e=>setClassId(e.target.value)} required><option value="">Select class</option>{classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label><label>Resource type<select value={type} onChange={e=>setType(e.target.value)}><option value="link">Web link</option><option value="document">Document link</option><option value="video">Video</option><option value="image">Image</option><option value="file">File link</option></select></label><label className="wide-field">Title<input value={title} onChange={e=>setTitle(e.target.value)} placeholder="e.g. Algebra revision notes" required/></label><label className="wide-field">Resource link<input type="url" value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://..." required/></label><label className="wide-field">Description<textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Tell students what this resource contains" rows="4"/></label><div className="form-action"><button type="submit" disabled={saving||loading}>{saving?"Publishing...":"Publish to Class"}</button></div></form></section><section className="dashboard-card"><div className="card-heading"><div><span className="eyebrow">CONNECTED MATERIALS</span><h2>Published Resources</h2></div></div>{loading?<div className="empty-state">Loading...</div>:resources.length===0?<div className="empty-state"><strong>No resources yet</strong><span>Published materials will appear here.</span></div>:resources.map(r=><article className="list-item" key={r.id}><span className="vle-chip">{r.class_name}</span><h3>{r.title}</h3><p>{r.description||"Learning material"}</p><small>{r.subject_name||"Class resource"} · {new Date(r.created_at).toLocaleString()}</small><br/><a href={r.resource_url} target="_blank" rel="noreferrer">Open resource ↗</a></article>)}</section></div></DashboardLayout>;
 }
-
 export default Resources;
