@@ -34,10 +34,6 @@ app.get("/", (req, res) => {
   res.json({ status: "ok", service: "EduSphere Backend" });
 });
 
-app.get("/test", (req, res) => {
-  res.json({ status: "ok", message: "Test route works!" });
-});
-
 const PORT = Number(process.env.PORT) || 5000;
 
 app.listen(PORT, () => {
