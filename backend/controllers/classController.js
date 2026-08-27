@@ -18,8 +18,7 @@ const getClasses = async (req, res) => {
        LEFT JOIN class_teachers ct ON ct.class_id = c.id
        LEFT JOIN class_subjects cs ON cs.class_id = c.id
        WHERE c.organization_id = $1
-       GROUP BY c.id ORDER BY c.name ASC`,
-      [orgId]
+       GROUP BY c.id ORDER BY c.name ASC`, [orgId]
     );
     res.json(result.rows);
   } catch (error) { console.error(error); res.status(500).json({ message: "Failed to load classes." }); }
@@ -35,8 +34,7 @@ const getTeacherClasses = async (req, res) => {
        FROM classes c INNER JOIN class_teachers ct ON ct.class_id = c.id AND ct.teacher_id = $2
        LEFT JOIN students s ON s.class_id = c.id AND s.organization_id = $1
        LEFT JOIN class_subjects cs ON cs.class_id = c.id
-       WHERE c.organization_id = $1 GROUP BY c.id ORDER BY c.name ASC`,
-      [orgId, tId]
+       WHERE c.organization_id = $1 GROUP BY c.id ORDER BY c.name ASC`, [orgId, tId]
     );
     res.json(result.rows);
   } catch (error) { console.error(error); res.status(500).json({ message: "Failed to load teacher classes." }); }
@@ -52,8 +50,7 @@ const getStudentClasses = async (req, res) => {
               (SELECT COUNT(*)::int FROM class_teachers ct2 WHERE ct2.class_id = c.id) AS teacher_count,
               (SELECT COUNT(*)::int FROM class_subjects cs2 WHERE cs2.class_id = c.id) AS subject_count
        FROM students s INNER JOIN classes c ON c.id = s.class_id AND c.organization_id = $1
-       WHERE s.id = $2 AND s.organization_id = $1`,
-      [orgId, sId]
+       WHERE s.id = $2 AND s.organization_id = $1`, [orgId, sId]
     );
     res.json(result.rows);
   } catch (error) { console.error(error); res.status(500).json({ message: "Failed to load student class." }); }
@@ -96,8 +93,7 @@ const updateClass = async (req, res) => {
 
 const loadClassDetails = async (classId, orgId, rosterPrivacy = false) => {
   const classResult = await pool.query(
-    `SELECT id, organization_id, name, code, description, academic_year, created_at FROM classes WHERE id=$1 AND organization_id=$2`,
-    [classId, orgId]
+    `SELECT id, organization_id, name, code, description, academic_year, created_at FROM classes WHERE id=$1 AND organization_id=$2`, [classId, orgId]
   );
   if (!classResult.rows.length) return null;
   const studentColumns = rosterPrivacy ? "id, student_id, full_name, gender" : "id, student_id, full_name, email, phone, gender, class_id";
@@ -124,8 +120,7 @@ const getTeacherClassDetails = async (req, res) => {
     if (!orgId || !tId) return res.status(400).json({ message: "Teacher organization context is required." });
     const assigned = await pool.query(`SELECT 1 FROM class_teachers ct JOIN classes c ON c.id=ct.class_id WHERE ct.class_id=$1 AND ct.teacher_id=$2 AND c.organization_id=$3`, [req.params.id, tId, orgId]);
     if (!assigned.rows.length) return res.status(404).json({ message: "Class not found or not assigned to you." });
-    const details = await loadClassDetails(req.params.id, orgId);
-    res.json(details);
+    res.json(await loadClassDetails(req.params.id, orgId));
   } catch (error) { console.error(error); res.status(500).json({ message: "Failed to load teacher class details." }); }
 };
 
@@ -135,8 +130,7 @@ const getStudentClassDetails = async (req, res) => {
     if (!orgId || !sId) return res.status(400).json({ message: "Student organization context is required." });
     const enrolled = await pool.query(`SELECT 1 FROM students WHERE id=$1 AND class_id=$2 AND organization_id=$3`, [sId, req.params.id, orgId]);
     if (!enrolled.rows.length) return res.status(404).json({ message: "Class not found for this student." });
-    const details = await loadClassDetails(req.params.id, orgId, true);
-    res.json(details);
+    res.json(await loadClassDetails(req.params.id, orgId, true));
   } catch (error) { console.error(error); res.status(500).json({ message: "Failed to load student class details." }); }
 };
 
@@ -181,12 +175,13 @@ const deleteClass = async (req, res) => {
   try {
     await client.query("BEGIN");
     const orgId = organizationId(req);
-    const result = await client.query("DELETE FROM classes WHERE id=$1 AND organization_id=$2 RETURNING id", [req.params.id, orgId]);
-    if (!result.rows.length) { await client.query("ROLLBACK"); return res.status(404).json({ message: "Class not found." }); }
-    // class_id is SET NULL by the FK; clear the legacy display field too so it cannot become stale.
-    await client.query("UPDATE students SET class_name=NULL WHERE class_id IS NULL AND organization_id=$1 AND class_name=(SELECT name FROM classes WHERE id=$2)", [orgId, req.params.id]).catch(() => {});
+    const classResult = await client.query("SELECT id, name FROM classes WHERE id=$1 AND organization_id=$2 FOR UPDATE", [req.params.id, orgId]);
+    if (!classResult.rows.length) { await client.query("ROLLBACK"); return res.status(404).json({ message: "Class not found." }); }
+    const className = classResult.rows[0].name;
+    await client.query("UPDATE students SET class_id=NULL, class_name=NULL WHERE class_id=$1 AND organization_id=$2", [req.params.id, orgId]);
+    await client.query("DELETE FROM classes WHERE id=$1 AND organization_id=$2", [req.params.id, orgId]);
     await client.query("COMMIT");
-    res.json({ message: "Class deleted successfully." });
+    res.json({ message: `Class ${className} deleted successfully.` });
   } catch (error) { await client.query("ROLLBACK"); console.error(error); res.status(500).json({ message: "Failed to delete class." }); }
   finally { client.release(); }
 };
