@@ -10,6 +10,7 @@ const teacherRoutes = require("./routes/teacherRoutes");
 const studentRoutes = require("./routes/studentRoutes");
 const classRoutes = require("./routes/classRoutes");
 const subjectRoutes = require("./routes/subjectRoutes");
+const vleRoutes = require("./routes/vleRoutes");
 
 const app = express();
 const isProduction = process.env.NODE_ENV === "production";
@@ -34,12 +35,12 @@ app.use("/api/teachers", teacherRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/classes", classRoutes);
 app.use("/api/subjects", subjectRoutes);
+app.use("/api/vle", vleRoutes);
 
 app.get("/", (req, res) => {
   res.json({ status: "ok", service: "EduSphere Backend" });
 });
 
-// Keep API errors JSON-shaped and avoid leaking internal details in production.
 app.use((err, req, res, next) => {
   console.error(err);
   if (res.headersSent) return next(err);
@@ -50,7 +51,4 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = Number(process.env.PORT) || 5000;
-
-app.listen(PORT, () => {
-  console.log(`EduSphere API listening on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`EduSphere API listening on port ${PORT}`));
