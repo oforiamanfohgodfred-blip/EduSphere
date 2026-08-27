@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   FaHome,
   FaClipboardList,
@@ -9,90 +9,29 @@ import {
   FaUser,
   FaSignOutAlt,
 } from "react-icons/fa";
+import { useAuth } from "../../context/AuthContext";
 
 function Sidebar({ role = "teacher" }) {
-  const navigate = useNavigate();
+  const { logout } = useAuth();
 
-  const handleLogout = () => {
-  localStorage.removeItem("token");
-  localStorage.removeItem("user");
-
-  window.location.href = "/";
-};
   const teacherLinks = [
-    {
-      name: "Dashboard",
-      path: "/teacher/dashboard",
-      icon: <FaHome />,
-    },
-    {
-      name: "Assignments",
-      path: "/teacher/assignments",
-      icon: <FaClipboardList />,
-    },
-    {
-      name: "Timetables",
-      path: "/teacher/timetables",
-      icon: <FaCalendarAlt />,
-    },
-    {
-      name: "Exam Notifications",
-      path: "/teacher/exams",
-      icon: <FaBook />,
-    },
-    {
-      name: "Resources",
-      path: "/teacher/resources",
-      icon: <FaFolderOpen />,
-    },
-    {
-      name: "Announcements",
-      path: "/teacher/announcements",
-      icon: <FaBullhorn />,
-    },
-    {
-      name: "Profile",
-      path: "/teacher/profile",
-      icon: <FaUser />,
-    },
+    { name: "Dashboard", path: "/teacher/dashboard", icon: <FaHome /> },
+    { name: "Assignments", path: "/teacher/assignments", icon: <FaClipboardList /> },
+    { name: "Timetables", path: "/teacher/timetables", icon: <FaCalendarAlt /> },
+    { name: "Exam Notifications", path: "/teacher/exams", icon: <FaBook /> },
+    { name: "Resources", path: "/teacher/resources", icon: <FaFolderOpen /> },
+    { name: "Announcements", path: "/teacher/announcements", icon: <FaBullhorn /> },
+    { name: "Profile", path: "/teacher/profile", icon: <FaUser /> },
   ];
 
   const studentLinks = [
-    {
-      name: "Dashboard",
-      path: "/student/dashboard",
-      icon: <FaHome />,
-    },
-    {
-      name: "Assignments",
-      path: "/student/assignments",
-      icon: <FaClipboardList />,
-    },
-    {
-      name: "Timetables",
-      path: "/student/timetables",
-      icon: <FaCalendarAlt />,
-    },
-    {
-      name: "Exam Notifications",
-      path: "/student/exams",
-      icon: <FaBook />,
-    },
-    {
-      name: "Resources",
-      path: "/student/resources",
-      icon: <FaFolderOpen />,
-    },
-    {
-      name: "Announcements",
-      path: "/student/announcements",
-      icon: <FaBullhorn />,
-    },
-    {
-      name: "Profile",
-      path: "/student/profile",
-      icon: <FaUser />,
-    },
+    { name: "Dashboard", path: "/student/dashboard", icon: <FaHome /> },
+    { name: "Assignments", path: "/student/assignments", icon: <FaClipboardList /> },
+    { name: "Timetables", path: "/student/timetables", icon: <FaCalendarAlt /> },
+    { name: "Exam Notifications", path: "/student/exams", icon: <FaBook /> },
+    { name: "Resources", path: "/student/resources", icon: <FaFolderOpen /> },
+    { name: "Announcements", path: "/student/announcements", icon: <FaBullhorn /> },
+    { name: "Profile", path: "/student/profile", icon: <FaUser /> },
   ];
 
   const links = role === "teacher" ? teacherLinks : studentLinks;
@@ -100,7 +39,6 @@ function Sidebar({ role = "teacher" }) {
   return (
     <div className="sidebar">
       <h2 className="sidebar-logo">EduSphere</h2>
-
       <nav className="sidebar-menu">
         {links.map((link) => (
           <Link key={link.path} to={link.path} className="sidebar-link">
@@ -108,21 +46,8 @@ function Sidebar({ role = "teacher" }) {
             <span>{link.name}</span>
           </Link>
         ))}
-
-        <button
-          onClick={handleLogout}
-          className="sidebar-link logout"
-          style={{
-            border: "none",
-            background: "none",
-            width: "100%",
-            cursor: "pointer",
-            textAlign: "left",
-          }}
-        >
-          <span className="sidebar-icon">
-            <FaSignOutAlt />
-          </span>
+        <button type="button" onClick={logout} className="sidebar-link logout">
+          <span className="sidebar-icon"><FaSignOutAlt /></span>
           <span>Logout</span>
         </button>
       </nav>
