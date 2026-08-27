@@ -15,23 +15,22 @@ const {
 const { authenticateToken, authorizeRoles } = require("../middleware/authMiddleware");
 
 const router = express.Router();
-
 router.use(authenticateToken);
 
-// IMPORTANT: named routes must come before /:id so Express cannot treat
-// "teacher" or "student" as a class ID.
+// Named routes must be registered before /:id.
 router.get("/teacher/my", authorizeRoles("teacher"), getTeacherClasses);
 router.get("/teacher/my/:id", authorizeRoles("teacher"), getTeacherClassDetails);
 router.get("/student/my", authorizeRoles("student"), getStudentClasses);
 router.get("/student/my/:id", authorizeRoles("student"), getStudentClassDetails);
 
-// Organization: full class management.
-router.get("/", authorizeRoles("organization", "admin"), getClasses);
-router.post("/", authorizeRoles("organization", "admin"), addClass);
-router.get("/:id", authorizeRoles("organization", "admin"), getClassDetails);
-router.put("/:id", authorizeRoles("organization", "admin"), updateClass);
-router.put("/:id/teachers", authorizeRoles("organization", "admin"), replaceClassTeachers);
-router.put("/:id/subjects", authorizeRoles("organization", "admin"), replaceClassSubjects);
-router.delete("/:id", authorizeRoles("organization", "admin"), deleteClass);
+// Organization owns class administration. Platform-admin cross-organization
+// controls will be introduced with the dedicated admin module.
+router.get("/", authorizeRoles("organization"), getClasses);
+router.post("/", authorizeRoles("organization"), addClass);
+router.get("/:id", authorizeRoles("organization"), getClassDetails);
+router.put("/:id", authorizeRoles("organization"), updateClass);
+router.put("/:id/teachers", authorizeRoles("organization"), replaceClassTeachers);
+router.put("/:id/subjects", authorizeRoles("organization"), replaceClassSubjects);
+router.delete("/:id", authorizeRoles("organization"), deleteClass);
 
 module.exports = router;
