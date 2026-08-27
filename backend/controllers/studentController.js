@@ -1,15 +1,172 @@
 const pool = require("../config/db");
 const bcrypt = require("bcrypt");
-const getOrganizationId = (req) => req.user?.role === "admin" ? null : Number(req.user?.organization_id);
 
-const getStudents = async (req,res)=>{try{const organizationId=getOrganizationId(req);const result=await pool.query(`SELECT s.id,s.student_id,s.organization_id,s.full_name,s.email,s.phone,s.gender,s.date_of_birth,s.class_id,s.class_name,c.name AS assigned_class_name,c.code AS assigned_class_code,s.created_at FROM students s LEFT JOIN classes c ON c.id=s.class_id WHERE ($1::integer IS NULL OR s.organization_id=$1) ORDER BY s.id ASC`,[organizationId]);res.status(200).json(result.rows)}catch(error){console.error(error);res.status(500).json({message:"Server Error"})}};
+const getOrganizationId = (req) => Number(req.user?.organization_id);
+const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
 
-const addStudent = async (req,res)=>{const client=await pool.connect();try{await client.query("BEGIN");const requestedOrganizationId=Number(req.body.organization_id);const organizationId=req.user?.role==="admin"?requestedOrganizationId:Number(req.user?.organization_id);if(!organizationId||Number.isNaN(organizationId)){await client.query("ROLLBACK");return res.status(400).json({message:"Valid organization is required."})}const {full_name,email,phone,gender,date_of_birth,class_id,password}=req.body;if(!full_name||!email||!password||!class_id){await client.query("ROLLBACK");return res.status(400).json({message:"Full name, email, password and class are required."})}const organization=await client.query("SELECT id FROM organizations WHERE id=$1",[organizationId]);if(!organization.rows.length){await client.query("ROLLBACK");return res.status(404).json({message:"Organization not found."})}const classResult=await client.query("SELECT id,name FROM classes WHERE id=$1 AND organization_id=$2",[class_id,organizationId]);if(!classResult.rows.length){await client.query("ROLLBACK");return res.status(400).json({message:"Selected class is invalid."})}const existingStudent=await client.query("SELECT id FROM students WHERE email=$1",[email]);const existingUser=await client.query("SELECT id FROM users WHERE email=$1",[email]);if(existingStudent.rows.length||existingUser.rows.length){await client.query("ROLLBACK");return res.status(400).json({message:"Email already exists."})}const countResult=await client.query("SELECT COUNT(*) FROM students WHERE organization_id=$1",[organizationId]);const studentNumber=String(Number(countResult.rows[0].count)+1).padStart(3,"0");const orgCode=String(organizationId).padStart(3,"0");const student_id=`ORG${orgCode}-STD${studentNumber}`;const hashedPassword=await bcrypt.hash(password,10);const studentResult=await client.query(`INSERT INTO students (student_id,organization_id,full_name,email,phone,gender,date_of_birth,class_id,class_name,password) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id,student_id,organization_id,full_name,email,phone,gender,date_of_birth,class_id,class_name,created_at`,[student_id,organizationId,full_name,email,phone,gender,date_of_birth,class_id,classResult.rows[0].name,hashedPassword]);const student=studentResult.rows[0];await client.query(`INSERT INTO users (organization_id,email,password,role,reference_id) VALUES ($1,$2,$3,$4,$5)`,[organizationId,email,hashedPassword,"student",student.id]);await client.query("COMMIT");res.status(201).json(student)}catch(error){await client.query("ROLLBACK");console.error(error);res.status(500).json({message:"Failed to add student."})}finally{client.release()}};
+const getStudents = async (req, res) => {
+  try {
+    const organizationId = getOrganizationId(req);
+    if (!organizationId) return res.status(400).json({ message: "Organization context is required." });
 
-const getStudentById=async(req,res)=>{try{const organizationId=getOrganizationId(req);const result=await pool.query(`SELECT s.id,s.student_id,s.organization_id,s.full_name,s.email,s.phone,s.gender,s.date_of_birth,s.class_id,s.class_name,c.name AS assigned_class_name,c.code AS assigned_class_code,s.created_at FROM students s LEFT JOIN classes c ON c.id=s.class_id WHERE s.id=$1 AND ($2::integer IS NULL OR s.organization_id=$2)`,[req.params.id,organizationId]);if(!result.rows.length)return res.status(404).json({message:"Student not found."});res.status(200).json(result.rows[0])}catch(error){console.error(error);res.status(500).json({message:"Server Error"})}};
+    const result = await pool.query(
+      `SELECT s.id,s.student_id,s.organization_id,s.full_name,s.email,s.phone,s.gender,
+              s.date_of_birth,s.class_id,c.name AS assigned_class_name,c.code AS assigned_class_code,s.created_at
+       FROM students s
+       LEFT JOIN classes c ON c.id=s.class_id AND c.organization_id=s.organization_id
+       WHERE s.organization_id=$1 ORDER BY s.id ASC`,
+      [organizationId]
+    );
+    res.status(200).json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server Error" });
+  }
+};
 
-const updateStudent=async(req,res)=>{try{const organizationId=getOrganizationId(req);const {full_name,email,phone,gender,date_of_birth,class_id}=req.body;if(!class_id)return res.status(400).json({message:"A class is required."});const classResult=await pool.query("SELECT id,name FROM classes WHERE id=$1 AND organization_id=$2",[class_id,organizationId]);if(!classResult.rows.length)return res.status(400).json({message:"Selected class is invalid."});const existing=await pool.query("SELECT id FROM students WHERE email=$1 AND id<>$2",[email,req.params.id]);if(existing.rows.length)return res.status(400).json({message:"Student with this email already exists."});const result=await pool.query(`UPDATE students SET full_name=$1,email=$2,phone=$3,gender=$4,date_of_birth=$5,class_id=$6,class_name=$7 WHERE id=$8 AND ($9::integer IS NULL OR organization_id=$9) RETURNING id,student_id,organization_id,full_name,email,phone,gender,date_of_birth,class_id,class_name,created_at`,[full_name,email,phone,gender,date_of_birth,class_id,classResult.rows[0].name,req.params.id,organizationId]);if(!result.rows.length)return res.status(404).json({message:"Student not found."});await pool.query(`UPDATE users SET email=$1 WHERE role='student' AND reference_id=$2`,[email,req.params.id]);res.status(200).json(result.rows[0])}catch(error){console.error(error);res.status(500).json({message:"Failed to update student."})}};
+const addStudent = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const organizationId = getOrganizationId(req);
+    const { full_name, phone, gender, date_of_birth, class_id, password } = req.body;
+    const email = normalizeEmail(req.body.email);
 
-const deleteStudent=async(req,res)=>{const client=await pool.connect();try{await client.query("BEGIN");const organizationId=getOrganizationId(req);await client.query(`DELETE FROM users WHERE role='student' AND reference_id=$1 AND ($2::integer IS NULL OR organization_id=$2)`,[req.params.id,organizationId]);const result=await client.query(`DELETE FROM students WHERE id=$1 AND ($2::integer IS NULL OR organization_id=$2) RETURNING id,student_id,organization_id,full_name,email,phone,gender,date_of_birth,class_id,class_name,created_at`,[req.params.id,organizationId]);if(!result.rows.length){await client.query("ROLLBACK");return res.status(404).json({message:"Student not found."})}await client.query("COMMIT");res.status(200).json({message:"Student deleted successfully.",student:result.rows[0]})}catch(error){await client.query("ROLLBACK");console.error(error);res.status(500).json({message:"Failed to delete student."})}finally{client.release()}};
+    if (!organizationId) return await rollbackWith(client, res, 400, "Organization context is required.");
+    if (!full_name || !email || !password || !class_id) {
+      return await rollbackWith(client, res, 400, "Full name, email, password and class are required.");
+    }
 
-module.exports={getStudents,addStudent,getStudentById,updateStudent,deleteStudent};
+    // Lock the organization row so ID allocation remains safe under concurrent creation.
+    const organization = await client.query("SELECT id FROM organizations WHERE id=$1 FOR UPDATE", [organizationId]);
+    if (!organization.rows.length) return await rollbackWith(client, res, 404, "Organization not found.");
+
+    const classResult = await client.query(
+      "SELECT id,name FROM classes WHERE id=$1 AND organization_id=$2",
+      [class_id, organizationId]
+    );
+    if (!classResult.rows.length) return await rollbackWith(client, res, 400, "Selected class is invalid.");
+
+    const existingStudent = await client.query("SELECT id FROM students WHERE LOWER(email)=LOWER($1)", [email]);
+    const existingUser = await client.query("SELECT id FROM users WHERE LOWER(email)=LOWER($1)", [email]);
+    if (existingStudent.rows.length || existingUser.rows.length) {
+      return await rollbackWith(client, res, 400, "Email already exists.");
+    }
+
+    const countResult = await client.query(
+      `SELECT COALESCE(MAX(NULLIF(regexp_replace(student_id, '^.*-STD', ''), '')::integer), 0) AS max_number
+       FROM students WHERE organization_id=$1`,
+      [organizationId]
+    );
+    const studentNumber = String(Number(countResult.rows[0].max_number) + 1).padStart(3, "0");
+    const orgCode = String(organizationId).padStart(3, "0");
+    const student_id = `ORG${orgCode}-STD${studentNumber}`;
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const studentResult = await client.query(
+      `INSERT INTO students (student_id,organization_id,full_name,email,phone,gender,date_of_birth,class_id,class_name,password)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       RETURNING id,student_id,organization_id,full_name,email,phone,gender,date_of_birth,class_id,created_at`,
+      [student_id, organizationId, full_name.trim(), email, phone || null, gender || null, date_of_birth || null, class_id, classResult.rows[0].name, hashedPassword]
+    );
+    const student = studentResult.rows[0];
+
+    await client.query(
+      `INSERT INTO users (organization_id,email,password,role,reference_id) VALUES ($1,$2,$3,'student',$4)`,
+      [organizationId, email, hashedPassword, student.id]
+    );
+
+    await client.query("COMMIT");
+    res.status(201).json(student);
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error(error);
+    res.status(error.code === "23505" ? 400 : 500).json({
+      message: error.code === "23505" ? "Student or email already exists." : "Failed to add student."
+    });
+  } finally { client.release(); }
+};
+
+const getStudentById = async (req, res) => {
+  try {
+    const organizationId = getOrganizationId(req);
+    if (!organizationId) return res.status(400).json({ message: "Organization context is required." });
+    const result = await pool.query(
+      `SELECT s.id,s.student_id,s.organization_id,s.full_name,s.email,s.phone,s.gender,s.date_of_birth,
+              s.class_id,c.name AS assigned_class_name,c.code AS assigned_class_code,s.created_at
+       FROM students s LEFT JOIN classes c ON c.id=s.class_id AND c.organization_id=s.organization_id
+       WHERE s.id=$1 AND s.organization_id=$2`,
+      [req.params.id, organizationId]
+    );
+    if (!result.rows.length) return res.status(404).json({ message: "Student not found." });
+    res.status(200).json(result.rows[0]);
+  } catch (error) { console.error(error); res.status(500).json({ message: "Server Error" }); }
+};
+
+const updateStudent = async (req, res) => {
+  try {
+    const organizationId = getOrganizationId(req);
+    const { full_name, phone, gender, date_of_birth, class_id } = req.body;
+    const email = normalizeEmail(req.body.email);
+    if (!organizationId) return res.status(400).json({ message: "Organization context is required." });
+    if (!full_name || !email || !class_id) return res.status(400).json({ message: "Full name, email and class are required." });
+
+    const classResult = await pool.query("SELECT id,name FROM classes WHERE id=$1 AND organization_id=$2", [class_id, organizationId]);
+    if (!classResult.rows.length) return res.status(400).json({ message: "Selected class is invalid." });
+
+    const existing = await pool.query(
+      "SELECT id FROM students WHERE LOWER(email)=LOWER($1) AND id<>$2",
+      [email, req.params.id]
+    );
+    const existingUser = await pool.query(
+      "SELECT id FROM users WHERE LOWER(email)=LOWER($1) AND NOT (role='student' AND reference_id=$2)",
+      [email, req.params.id]
+    );
+    if (existing.rows.length || existingUser.rows.length) return res.status(400).json({ message: "Email already exists." });
+
+    const result = await pool.query(
+      `UPDATE students SET full_name=$1,email=$2,phone=$3,gender=$4,date_of_birth=$5,class_id=$6,class_name=$7
+       WHERE id=$8 AND organization_id=$9
+       RETURNING id,student_id,organization_id,full_name,email,phone,gender,date_of_birth,class_id,created_at`,
+      [full_name.trim(), email, phone || null, gender || null, date_of_birth || null, class_id, classResult.rows[0].name, req.params.id, organizationId]
+    );
+    if (!result.rows.length) return res.status(404).json({ message: "Student not found." });
+
+    await pool.query(
+      `UPDATE users SET email=$1 WHERE role='student' AND reference_id=$2 AND organization_id=$3`,
+      [email, req.params.id, organizationId]
+    );
+    res.status(200).json(result.rows[0]);
+  } catch (error) { console.error(error); res.status(500).json({ message: "Failed to update student." }); }
+};
+
+const deleteStudent = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const organizationId = getOrganizationId(req);
+    if (!organizationId) return await rollbackWith(client, res, 400, "Organization context is required.");
+
+    const result = await client.query(
+      `DELETE FROM students WHERE id=$1 AND organization_id=$2
+       RETURNING id,student_id,organization_id,full_name,email,phone,gender,date_of_birth,class_id,created_at`,
+      [req.params.id, organizationId]
+    );
+    if (!result.rows.length) return await rollbackWith(client, res, 404, "Student not found.");
+
+    await client.query("DELETE FROM users WHERE role='student' AND reference_id=$1 AND organization_id=$2", [req.params.id, organizationId]);
+    await client.query("COMMIT");
+    res.status(200).json({ message: "Student deleted successfully.", student: result.rows[0] });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error(error);
+    res.status(500).json({ message: "Failed to delete student." });
+  } finally { client.release(); }
+};
+
+const rollbackWith = async (client, res, status, message) => {
+  await client.query("ROLLBACK");
+  return res.status(status).json({ message });
+};
+
+module.exports = { getStudents, addStudent, getStudentById, updateStudent, deleteStudent };
