@@ -19,7 +19,12 @@ if (isProduction && !allowedOrigin) {
   throw new Error("FRONTEND_URL must be configured in production.");
 }
 
-app.use(cors(allowedOrigin ? { origin: allowedOrigin } : { origin: true }));
+const corsOptions = isProduction
+  ? { origin: allowedOrigin }
+  : { origin: allowedOrigin || true };
+
+app.disable("x-powered-by");
+app.use(cors(corsOptions));
 app.use(express.json({ limit: "1mb" }));
 
 app.use("/api/auth", authRoutes);
@@ -32,6 +37,16 @@ app.use("/api/subjects", subjectRoutes);
 
 app.get("/", (req, res) => {
   res.json({ status: "ok", service: "EduSphere Backend" });
+});
+
+// Keep API errors JSON-shaped and avoid leaking internal details in production.
+app.use((err, req, res, next) => {
+  console.error(err);
+  if (res.headersSent) return next(err);
+
+  res.status(err.status || 500).json({
+    message: isProduction ? "An unexpected server error occurred." : err.message || "Internal server error.",
+  });
 });
 
 const PORT = Number(process.env.PORT) || 5000;
