@@ -16,8 +16,14 @@ const { authenticateToken, authorizeRoles } = require("../middleware/authMiddlew
 
 const router = express.Router();
 
-// Every class endpoint requires authentication.
 router.use(authenticateToken);
+
+// IMPORTANT: named routes must come before /:id so Express cannot treat
+// "teacher" or "student" as a class ID.
+router.get("/teacher/my", authorizeRoles("teacher"), getTeacherClasses);
+router.get("/teacher/my/:id", authorizeRoles("teacher"), getTeacherClassDetails);
+router.get("/student/my", authorizeRoles("student"), getStudentClasses);
+router.get("/student/my/:id", authorizeRoles("student"), getStudentClassDetails);
 
 // Organization: full class management.
 router.get("/", authorizeRoles("organization", "admin"), getClasses);
@@ -27,13 +33,5 @@ router.put("/:id", authorizeRoles("organization", "admin"), updateClass);
 router.put("/:id/teachers", authorizeRoles("organization", "admin"), replaceClassTeachers);
 router.put("/:id/subjects", authorizeRoles("organization", "admin"), replaceClassSubjects);
 router.delete("/:id", authorizeRoles("organization", "admin"), deleteClass);
-
-// Teacher: read-only access to assigned classes.
-router.get("/teacher/my", authorizeRoles("teacher"), getTeacherClasses);
-router.get("/teacher/my/:id", authorizeRoles("teacher"), getTeacherClassDetails);
-
-// Student: read-only access to the student's enrolled class.
-router.get("/student/my", authorizeRoles("student"), getStudentClasses);
-router.get("/student/my/:id", authorizeRoles("student"), getStudentClassDetails);
 
 module.exports = router;
