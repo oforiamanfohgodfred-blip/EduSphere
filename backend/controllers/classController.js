@@ -29,13 +29,11 @@ const getClasses = async (req, res) => {
   }
 };
 
-// Teacher view: only classes explicitly assigned to the logged-in teacher.
 const getTeacherClasses = async (req, res) => {
   try {
     const orgId = organizationId(req);
     const tId = teacherId(req);
     if (!orgId || !tId) return res.status(400).json({ message: "Teacher organization context is required." });
-
     const result = await pool.query(
       `SELECT c.id, c.organization_id, c.name, c.code, c.description, c.academic_year, c.created_at,
               COUNT(DISTINCT s.id)::int AS student_count,
@@ -49,7 +47,6 @@ const getTeacherClasses = async (req, res) => {
        ORDER BY c.name ASC`,
       [orgId, tId]
     );
-
     res.json(result.rows);
   } catch (error) {
     console.error(error);
@@ -57,13 +54,11 @@ const getTeacherClasses = async (req, res) => {
   }
 };
 
-// Student view: return the student's enrolled class only.
 const getStudentClasses = async (req, res) => {
   try {
     const orgId = organizationId(req);
     const sId = studentId(req);
     if (!orgId || !sId) return res.status(400).json({ message: "Student organization context is required." });
-
     const result = await pool.query(
       `SELECT c.id, c.organization_id, c.name, c.code, c.description, c.academic_year, c.created_at,
               (SELECT COUNT(*)::int FROM students s2 WHERE s2.class_id = c.id AND s2.organization_id = $1) AS student_count,
@@ -74,7 +69,6 @@ const getStudentClasses = async (req, res) => {
        WHERE s.id = $2 AND s.organization_id = $1`,
       [orgId, sId]
     );
-
     res.json(result.rows);
   } catch (error) {
     console.error(error);
@@ -106,6 +100,7 @@ const updateClass = async (req, res) => {
   try {
     const orgId = organizationId(req);
     const { name, code, description, academic_year } = req.body;
+    if (!orgId) return res.status(400).json({ message: "Organization context is required." });
     if (!name || !code) return res.status(400).json({ message: "Class name and code are required." });
     const result = await pool.query(
       `UPDATE classes SET name=$1, code=$2, description=$3, academic_year=$4
@@ -131,27 +126,11 @@ const getClassDetails = async (req, res) => {
       [req.params.id, orgId]
     );
     if (!classResult.rows.length) return res.status(404).json({ message: "Class not found." });
-
     const [students, teachers, subjects] = await Promise.all([
-      pool.query(
-        `SELECT id, student_id, full_name, email, phone, gender, class_id
-         FROM students WHERE class_id=$1 AND organization_id=$2 ORDER BY full_name`,
-        [req.params.id, orgId]
-      ),
-      pool.query(
-        `SELECT t.id, t.teacher_id, t.full_name, t.email, t.subject, t.phone
-         FROM class_teachers ct JOIN teachers t ON t.id=ct.teacher_id
-         WHERE ct.class_id=$1 AND t.organization_id=$2 ORDER BY t.full_name`,
-        [req.params.id, orgId]
-      ),
-      pool.query(
-        `SELECT s.id, s.name, s.code, s.description
-         FROM class_subjects cs JOIN subjects s ON s.id=cs.subject_id
-         WHERE cs.class_id=$1 AND s.organization_id=$2 ORDER BY s.name`,
-        [req.params.id, orgId]
-      )
+      pool.query(`SELECT id, student_id, full_name, email, phone, gender, class_id FROM students WHERE class_id=$1 AND organization_id=$2 ORDER BY full_name`, [req.params.id, orgId]),
+      pool.query(`SELECT t.id, t.teacher_id, t.full_name, t.email, t.subject, t.phone FROM class_teachers ct JOIN teachers t ON t.id=ct.teacher_id WHERE ct.class_id=$1 AND t.organization_id=$2 ORDER BY t.full_name`, [req.params.id, orgId]),
+      pool.query(`SELECT s.id, s.name, s.code, s.description FROM class_subjects cs JOIN subjects s ON s.id=cs.subject_id WHERE cs.class_id=$1 AND s.organization_id=$2 ORDER BY s.name`, [req.params.id, orgId])
     ]);
-
     res.json({ ...classResult.rows[0], students: students.rows, teachers: teachers.rows, subjects: subjects.rows });
   } catch (error) {
     console.error(error);
@@ -159,40 +138,23 @@ const getClassDetails = async (req, res) => {
   }
 };
 
-// Teacher details are deliberately scoped through class_teachers.
 const getTeacherClassDetails = async (req, res) => {
   try {
     const orgId = organizationId(req);
     const tId = teacherId(req);
+    if (!orgId || !tId) return res.status(400).json({ message: "Teacher organization context is required." });
     const classResult = await pool.query(
       `SELECT c.id, c.organization_id, c.name, c.code, c.description, c.academic_year, c.created_at
-       FROM classes c
-       INNER JOIN class_teachers ct ON ct.class_id = c.id AND ct.teacher_id = $2
+       FROM classes c INNER JOIN class_teachers ct ON ct.class_id = c.id AND ct.teacher_id = $2
        WHERE c.id = $1 AND c.organization_id = $3`,
       [req.params.id, tId, orgId]
     );
     if (!classResult.rows.length) return res.status(404).json({ message: "Class not found or not assigned to you." });
-
     const [students, teachers, subjects] = await Promise.all([
-      pool.query(
-        `SELECT id, student_id, full_name, email, phone, gender, class_id
-         FROM students WHERE class_id=$1 AND organization_id=$2 ORDER BY full_name`,
-        [req.params.id, orgId]
-      ),
-      pool.query(
-        `SELECT t.id, t.teacher_id, t.full_name, t.email, t.subject, t.phone
-         FROM class_teachers ct JOIN teachers t ON t.id=ct.teacher_id
-         WHERE ct.class_id=$1 AND t.organization_id=$2 ORDER BY t.full_name`,
-        [req.params.id, orgId]
-      ),
-      pool.query(
-        `SELECT s.id, s.name, s.code, s.description
-         FROM class_subjects cs JOIN subjects s ON s.id=cs.subject_id
-         WHERE cs.class_id=$1 AND s.organization_id=$2 ORDER BY s.name`,
-        [req.params.id, orgId]
-      )
+      pool.query(`SELECT id, student_id, full_name, email, phone, gender, class_id FROM students WHERE class_id=$1 AND organization_id=$2 ORDER BY full_name`, [req.params.id, orgId]),
+      pool.query(`SELECT t.id, t.teacher_id, t.full_name, t.email, t.subject, t.phone FROM class_teachers ct JOIN teachers t ON t.id=ct.teacher_id WHERE ct.class_id=$1 AND t.organization_id=$2 ORDER BY t.full_name`, [req.params.id, orgId]),
+      pool.query(`SELECT s.id, s.name, s.code, s.description FROM class_subjects cs JOIN subjects s ON s.id=cs.subject_id WHERE cs.class_id=$1 AND s.organization_id=$2 ORDER BY s.name`, [req.params.id, orgId])
     ]);
-
     res.json({ ...classResult.rows[0], students: students.rows, teachers: teachers.rows, subjects: subjects.rows });
   } catch (error) {
     console.error(error);
@@ -200,40 +162,25 @@ const getTeacherClassDetails = async (req, res) => {
   }
 };
 
-// Student details are scoped to the student's own class.
 const getStudentClassDetails = async (req, res) => {
   try {
     const orgId = organizationId(req);
     const sId = studentId(req);
+    if (!orgId || !sId) return res.status(400).json({ message: "Student organization context is required." });
     const classResult = await pool.query(
       `SELECT c.id, c.organization_id, c.name, c.code, c.description, c.academic_year, c.created_at
-       FROM students s
-       INNER JOIN classes c ON c.id = s.class_id AND c.organization_id = $3
+       FROM students s INNER JOIN classes c ON c.id = s.class_id AND c.organization_id = $3
        WHERE s.id = $2 AND s.organization_id = $3 AND c.id = $1`,
       [req.params.id, sId, orgId]
     );
     if (!classResult.rows.length) return res.status(404).json({ message: "Class not found for this student." });
 
+    // Students can see their class roster, but not classmates' private contact data.
     const [students, teachers, subjects] = await Promise.all([
-      pool.query(
-        `SELECT id, student_id, full_name, email, phone, gender, class_id
-         FROM students WHERE class_id=$1 AND organization_id=$2 ORDER BY full_name`,
-        [req.params.id, orgId]
-      ),
-      pool.query(
-        `SELECT t.id, t.teacher_id, t.full_name, t.email, t.subject, t.phone
-         FROM class_teachers ct JOIN teachers t ON t.id=ct.teacher_id
-         WHERE ct.class_id=$1 AND t.organization_id=$2 ORDER BY t.full_name`,
-        [req.params.id, orgId]
-      ),
-      pool.query(
-        `SELECT s.id, s.name, s.code, s.description
-         FROM class_subjects cs JOIN subjects s ON s.id=cs.subject_id
-         WHERE cs.class_id=$1 AND s.organization_id=$2 ORDER BY s.name`,
-        [req.params.id, orgId]
-      )
+      pool.query(`SELECT id, student_id, full_name, gender FROM students WHERE class_id=$1 AND organization_id=$2 ORDER BY full_name`, [req.params.id, orgId]),
+      pool.query(`SELECT t.id, t.teacher_id, t.full_name, t.subject FROM class_teachers ct JOIN teachers t ON t.id=ct.teacher_id WHERE ct.class_id=$1 AND t.organization_id=$2 ORDER BY t.full_name`, [req.params.id, orgId]),
+      pool.query(`SELECT s.id, s.name, s.code, s.description FROM class_subjects cs JOIN subjects s ON s.id=cs.subject_id WHERE cs.class_id=$1 AND s.organization_id=$2 ORDER BY s.name`, [req.params.id, orgId])
     ]);
-
     res.json({ ...classResult.rows[0], students: students.rows, teachers: teachers.rows, subjects: subjects.rows });
   } catch (error) {
     console.error(error);
@@ -248,11 +195,11 @@ const replaceClassTeachers = async (req, res) => {
     const orgId = organizationId(req);
     const classCheck = await client.query("SELECT id FROM classes WHERE id=$1 AND organization_id=$2", [req.params.id, orgId]);
     if (!classCheck.rows.length) { await client.query("ROLLBACK"); return res.status(404).json({ message: "Class not found." }); }
-    const teacherIds = Array.isArray(req.body.teacher_ids) ? req.body.teacher_ids.map(Number).filter(Boolean) : [];
+    const teacherIds = Array.isArray(req.body.teacher_ids) ? req.body.teacher_ids.map(Number).filter(Number.isInteger) : [];
     const valid = await client.query("SELECT id FROM teachers WHERE organization_id=$1 AND id=ANY($2::int[])", [orgId, teacherIds]);
-    if (valid.rows.length !== teacherIds.length) { await client.query("ROLLBACK"); return res.status(400).json({ message: "One or more teachers are invalid for this organization." }); }
+    if (valid.rows.length !== new Set(teacherIds).size) { await client.query("ROLLBACK"); return res.status(400).json({ message: "One or more teachers are invalid for this organization." }); }
     await client.query("DELETE FROM class_teachers WHERE class_id=$1", [req.params.id]);
-    for (const id of teacherIds) await client.query("INSERT INTO class_teachers (class_id, teacher_id) VALUES ($1,$2)", [req.params.id, id]);
+    for (const id of new Set(teacherIds)) await client.query("INSERT INTO class_teachers (class_id, teacher_id) VALUES ($1,$2)", [req.params.id, id]);
     await client.query("COMMIT");
     res.json({ message: "Class teachers updated successfully." });
   } catch (error) { await client.query("ROLLBACK"); console.error(error); res.status(500).json({ message: "Failed to update class teachers." }); }
@@ -266,11 +213,11 @@ const replaceClassSubjects = async (req, res) => {
     const orgId = organizationId(req);
     const classCheck = await client.query("SELECT id FROM classes WHERE id=$1 AND organization_id=$2", [req.params.id, orgId]);
     if (!classCheck.rows.length) { await client.query("ROLLBACK"); return res.status(404).json({ message: "Class not found." }); }
-    const subjectIds = Array.isArray(req.body.subject_ids) ? req.body.subject_ids.map(Number).filter(Boolean) : [];
+    const subjectIds = Array.isArray(req.body.subject_ids) ? req.body.subject_ids.map(Number).filter(Number.isInteger) : [];
     const valid = await client.query("SELECT id FROM subjects WHERE organization_id=$1 AND id=ANY($2::int[])", [orgId, subjectIds]);
-    if (valid.rows.length !== subjectIds.length) { await client.query("ROLLBACK"); return res.status(400).json({ message: "One or more subjects are invalid for this organization." }); }
+    if (valid.rows.length !== new Set(subjectIds).size) { await client.query("ROLLBACK"); return res.status(400).json({ message: "One or more subjects are invalid for this organization." }); }
     await client.query("DELETE FROM class_subjects WHERE class_id=$1", [req.params.id]);
-    for (const id of subjectIds) await client.query("INSERT INTO class_subjects (class_id, subject_id) VALUES ($1,$2)", [req.params.id, id]);
+    for (const id of new Set(subjectIds)) await client.query("INSERT INTO class_subjects (class_id, subject_id) VALUES ($1,$2)", [req.params.id, id]);
     await client.query("COMMIT");
     res.json({ message: "Class subjects updated successfully." });
   } catch (error) { await client.query("ROLLBACK"); console.error(error); res.status(500).json({ message: "Failed to update class subjects." }); }
@@ -286,16 +233,4 @@ const deleteClass = async (req, res) => {
   } catch (error) { console.error(error); res.status(500).json({ message: "Failed to delete class." }); }
 };
 
-module.exports = {
-  getClasses,
-  getTeacherClasses,
-  getStudentClasses,
-  addClass,
-  updateClass,
-  getClassDetails,
-  getTeacherClassDetails,
-  getStudentClassDetails,
-  replaceClassTeachers,
-  replaceClassSubjects,
-  deleteClass,
-};
+module.exports = { getClasses, getTeacherClasses, getStudentClasses, addClass, updateClass, getClassDetails, getTeacherClassDetails, getStudentClassDetails, replaceClassTeachers, replaceClassSubjects, deleteClass };
