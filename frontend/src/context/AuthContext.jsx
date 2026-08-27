@@ -31,14 +31,16 @@ export const AuthProvider = ({ children }) => {
     const response = await api.post("/auth/login", { email, password });
     const data = response.data;
 
-    if (!data.token || !data.user) {
+    if (!data.token || !data.role) {
       throw new Error("Invalid authentication response.");
     }
 
+    // Store the complete server response because the current API returns
+    // role/profile alongside the token and other session metadata.
     localStorage.setItem("token", data.token);
-    localStorage.setItem("user", JSON.stringify(data.user));
+    localStorage.setItem("user", JSON.stringify(data));
     setToken(data.token);
-    setUser(data.user);
+    setUser(data);
 
     return data;
   };
