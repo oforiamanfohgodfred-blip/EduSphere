@@ -13,6 +13,13 @@ const readStoredUser = () => {
   }
 };
 
+const buildUser = (data) => ({
+  ...(data.profile || {}),
+  role: data.role,
+  organization_id: data.profile?.organization_id ?? data.organization_id ?? null,
+  reference_id: data.profile?.id ?? data.reference_id ?? null,
+});
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(readStoredUser);
   const [token, setToken] = useState(() => localStorage.getItem("token"));
@@ -35,12 +42,11 @@ export const AuthProvider = ({ children }) => {
       throw new Error("Invalid authentication response.");
     }
 
-    // Store the complete server response because the current API returns
-    // role/profile alongside the token and other session metadata.
+    const authenticatedUser = buildUser(data);
     localStorage.setItem("token", data.token);
-    localStorage.setItem("user", JSON.stringify(data));
+    localStorage.setItem("user", JSON.stringify(authenticatedUser));
     setToken(data.token);
-    setUser(data);
+    setUser(authenticatedUser);
 
     return data;
   };
