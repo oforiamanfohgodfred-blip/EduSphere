@@ -28,12 +28,15 @@ const addTeacher = async (req, res) => {
     if (!organizationId) return await rollbackWith(client, res, 400, "Organization context is required.");
     if (!full_name || !email || !password) return await rollbackWith(client, res, 400, "Full name, email and password are required.");
 
-    const organization = await client.query("SELECT id FROM organizations WHERE id=$1 FOR UPDATE", [organizationId]);
+    // Lock the organization row so ID allocation is serialized per organization.
+    const organization = await client.query(
+      "SELECT id, organization_code FROM organizations WHERE id=$1 FOR UPDATE",
+      [organizationId]
+    );
     if (!organization.rows.length) return await rollbackWith(client, res, 404, "Organization not found.");
 
-    const existingTeacher = await client.query("SELECT id FROM teachers WHERE LOWER(email)=LOWER($1)", [email]);
     const existingUser = await client.query("SELECT id FROM users WHERE LOWER(email)=LOWER($1)", [email]);
-    if (existingTeacher.rows.length || existingUser.rows.length) return await rollbackWith(client, res, 400, "Email already exists.");
+    if (existingUser.rows.length) return await rollbackWith(client, res, 400, "Email already exists.");
 
     const countResult = await client.query(
       `SELECT COALESCE(MAX(NULLIF(regexp_replace(teacher_id, '^.*-TCH', ''), '')::integer), 0) AS max_number
@@ -41,8 +44,7 @@ const addTeacher = async (req, res) => {
       [organizationId]
     );
     const teacherNumber = String(Number(countResult.rows[0].max_number) + 1).padStart(3, "0");
-    const orgCode = String(organizationId).padStart(3, "0");
-    const teacher_id = `ORG${orgCode}-TCH${teacherNumber}`;
+    const teacher_id = `${organization.rows[0].organization_code}-TCH${teacherNumber}`;
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const teacherResult = await client.query(
@@ -82,28 +84,38 @@ const getTeacherById = async (req, res) => {
 };
 
 const updateTeacher = async (req, res) => {
+  const client = await pool.connect();
   try {
+    await client.query("BEGIN");
     const organizationId = getOrganizationId(req);
     const { full_name, subject, phone } = req.body;
     const email = normalizeEmail(req.body.email);
-    if (!organizationId) return res.status(400).json({ message: "Organization context is required." });
-    if (!full_name || !email) return res.status(400).json({ message: "Full name and email are required." });
+    if (!organizationId) return await rollbackWith(client, res, 400, "Organization context is required.");
+    if (!full_name || !email) return await rollbackWith(client, res, 400, "Full name and email are required.");
 
-    const existing = await pool.query("SELECT id FROM teachers WHERE LOWER(email)=LOWER($1) AND id<>$2", [email, req.params.id]);
-    const existingUser = await pool.query("SELECT id FROM users WHERE LOWER(email)=LOWER($1) AND NOT (role='teacher' AND reference_id=$2)", [email, req.params.id]);
-    if (existing.rows.length || existingUser.rows.length) return res.status(400).json({ message: "Email already exists." });
+    const existing = await client.query("SELECT id FROM teachers WHERE LOWER(email)=LOWER($1) AND id<>$2", [email, req.params.id]);
+    const existingUser = await client.query("SELECT id FROM users WHERE LOWER(email)=LOWER($1) AND NOT (role='teacher' AND reference_id=$2)", [email, req.params.id]);
+    if (existing.rows.length || existingUser.rows.length) return await rollbackWith(client, res, 400, "Email already exists.");
 
-    const result = await pool.query(
+    const result = await client.query(
       `UPDATE teachers SET full_name=$1,email=$2,subject=$3,phone=$4
        WHERE id=$5 AND organization_id=$6
        RETURNING id,teacher_id,organization_id,full_name,email,subject,phone,created_at`,
       [full_name.trim(), email, subject || null, phone || null, req.params.id, organizationId]
     );
-    if (!result.rows.length) return res.status(404).json({ message: "Teacher not found." });
+    if (!result.rows.length) return await rollbackWith(client, res, 404, "Teacher not found.");
 
-    await pool.query(`UPDATE users SET email=$1 WHERE role='teacher' AND reference_id=$2 AND organization_id=$3`, [email, req.params.id, organizationId]);
+    await client.query(
+      `UPDATE users SET email=$1 WHERE role='teacher' AND reference_id=$2 AND organization_id=$3`,
+      [email, req.params.id, organizationId]
+    );
+    await client.query("COMMIT");
     res.status(200).json(result.rows[0]);
-  } catch (error) { console.error(error); res.status(500).json({ message: "Failed to update teacher." }); }
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error(error);
+    res.status(error.code === "23505" ? 400 : 500).json({ message: error.code === "23505" ? "Teacher or email already exists." : "Failed to update teacher." });
+  } finally { client.release(); }
 };
 
 const deleteTeacher = async (req, res) => {
