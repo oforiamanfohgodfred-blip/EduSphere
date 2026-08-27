@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import api from "../../../services/api";
 
 function TeacherDashboardContent() {
-  const navigate = useNavigate();
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -17,9 +15,7 @@ function TeacherDashboardContent() {
         const response = await api.get("/classes/teacher/my");
         if (active) setClasses(Array.isArray(response.data) ? response.data : []);
       } catch (requestError) {
-        if (active) {
-          setError(requestError.response?.data?.message || "Unable to load your classes.");
-        }
+        if (active) setError(requestError.response?.data?.message || "Unable to load your classes.");
       } finally {
         if (active) setLoading(false);
       }
@@ -35,9 +31,7 @@ function TeacherDashboardContent() {
   return (
     <div>
       <h1>Teacher Dashboard</h1>
-      <p className="dashboard-subtitle">
-        Your assigned classes and connected learning spaces.
-      </p>
+      <p className="dashboard-subtitle">Your assigned classes and connected learning spaces.</p>
 
       {error && <div className="error-message">{error}</div>}
 
@@ -57,15 +51,10 @@ function TeacherDashboardContent() {
           ) : (
             <div className="class-list">
               {classes.map((item) => (
-                <button
-                  type="button"
-                  className="action-btn"
-                  key={item.id}
-                  onClick={() => navigate(`/teacher/classes/${item.id}`)}
-                >
+                <div className="action-btn" key={item.id}>
                   <strong>{item.name}</strong>
-                  <span>{item.code} · {item.student_count || 0} students</span>
-                </button>
+                  <span>{item.code} · {item.student_count || 0} students · {item.subject_count || 0} subjects</span>
+                </div>
               ))}
             </div>
           )}
@@ -74,18 +63,9 @@ function TeacherDashboardContent() {
         <div className="section-card">
           <h2>Class access</h2>
           <p>
-            Assignments, resources, announcements and other VLE tools will be
-            attached to the classes you are assigned to.
+            This dashboard now uses live class assignments from the backend.
+            Class-level VLE tools will be opened through the dedicated teacher class workspace rather than fake dashboard actions.
           </p>
-          {classes[0] && (
-            <button
-              type="button"
-              className="action-btn"
-              onClick={() => navigate(`/teacher/classes/${classes[0].id}`)}
-            >
-              Open first class
-            </button>
-          )}
         </div>
       </div>
     </div>
