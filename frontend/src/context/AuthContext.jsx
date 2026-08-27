@@ -1,95 +1,60 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import api from "../services/api";
 
-
-// Create Context
 const AuthContext = createContext();
 
+const readStoredUser = () => {
+  try {
+    const stored = localStorage.getItem("user");
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    localStorage.removeItem("user");
+    return null;
+  }
+};
 
-// Provider
 export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(readStoredUser);
+  const [token, setToken] = useState(() => localStorage.getItem("token"));
 
-  const [user, setUser] = useState(
-    JSON.parse(localStorage.getItem("user")) || null
-  );
+  useEffect(() => {
+    const handleExpiredSession = () => {
+      setToken(null);
+      setUser(null);
+    };
 
-  const [token, setToken] = useState(
-    localStorage.getItem("token") || null
-  );
+    window.addEventListener("auth:expired", handleExpiredSession);
+    return () => window.removeEventListener("auth:expired", handleExpiredSession);
+  }, []);
 
-
-  // Login Function
   const login = async (email, password) => {
-
-    const response = await api.post(
-      "/auth/login",
-      {
-        email,
-        password,
-      }
-    );
-
-
+    const response = await api.post("/auth/login", { email, password });
     const data = response.data;
 
-    console.log("LOGIN RESPONSE:", data);
+    if (!data.token || !data.user) {
+      throw new Error("Invalid authentication response.");
+    }
 
-    localStorage.setItem(
-      "token",
-      data.token
-    );
-
-
-    localStorage.setItem(
-      "user",
-      JSON.stringify(data)
-    );
-
-
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
     setToken(data.token);
-
-    setUser(data);
-
+    setUser(data.user);
 
     return data;
-
   };
 
-
-  // Logout Function
   const logout = () => {
-
     localStorage.removeItem("token");
-
     localStorage.removeItem("user");
-
-
     setToken(null);
-
     setUser(null);
-
   };
-
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        token,
-        login,
-        logout,
-      }}
-    >
+    <AuthContext.Provider value={{ user, token, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
-
 };
 
-
-// Custom Hook
-export const useAuth = () => {
-
-  return useContext(AuthContext);
-
-};
+export const useAuth = () => useContext(AuthContext);
