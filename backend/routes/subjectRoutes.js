@@ -3,7 +3,10 @@ const { getSubjects, addSubject, updateSubject, deleteSubject } = require("../co
 const { authenticateToken, authorizeRoles } = require("../middleware/authMiddleware");
 
 const router = express.Router();
-router.use(authenticateToken, authorizeRoles("organization", "admin"));
+
+// Organization owns curriculum administration. Platform-admin controls will
+// be introduced through the dedicated admin module.
+router.use(authenticateToken, authorizeRoles("organization"));
 router.get("/", getSubjects);
 router.post("/", addSubject);
 router.put("/:id", updateSubject);
