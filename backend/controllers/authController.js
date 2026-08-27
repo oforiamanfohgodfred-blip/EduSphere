@@ -2,107 +2,65 @@ const pool = require("../config/db");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
-// =======================
-// Login
-// =======================
+const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
+
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const email = normalizeEmail(req.body.email);
+    const { password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({
-        message: "Email and password are required.",
-      });
+      return res.status(400).json({ message: "Email and password are required." });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      console.error("JWT_SECRET is not configured.");
+      return res.status(500).json({ message: "Authentication service is not configured." });
     }
 
     const userResult = await pool.query(
-      `SELECT * FROM users WHERE LOWER(email) = LOWER($1)`,
-      [email.trim()]
+      `SELECT id, organization_id, email, password, role, reference_id, is_active
+       FROM users WHERE LOWER(email) = $1`,
+      [email]
     );
 
     if (userResult.rows.length === 0) {
-      return res.status(401).json({
-        message: "Invalid email or password.",
-      });
+      return res.status(401).json({ message: "Invalid email or password." });
     }
 
     const user = userResult.rows[0];
-
-    if (!user.is_active) {
-      return res.status(403).json({
-        message: "This account has been deactivated.",
-      });
-    }
+    if (!user.is_active) return res.status(403).json({ message: "This account has been deactivated." });
 
     const validPassword = await bcrypt.compare(password, user.password);
-
-    if (!validPassword) {
-      return res.status(401).json({
-        message: "Invalid email or password.",
-      });
-    }
+    if (!validPassword) return res.status(401).json({ message: "Invalid email or password." });
 
     let profile = null;
 
     if (user.role === "organization") {
       const organization = await pool.query(
-        `SELECT
-           id,
-           organization_name,
-           organization_code,
-           organization_type,
-           email,
-           country,
-           created_at
-         FROM organizations
-         WHERE id = $1`,
+        `SELECT id, organization_name, organization_code, organization_type, email, country, created_at
+         FROM organizations WHERE id = $1`,
         [user.reference_id]
       );
-
       profile = organization.rows[0] || null;
     } else if (user.role === "teacher") {
       const teacher = await pool.query(
-        `SELECT
-          id,
-          teacher_id,
-          organization_id,
-          full_name,
-          email,
-          subject,
-          phone,
-          created_at
-        FROM teachers
-        WHERE id = $1 AND organization_id = $2`,
+        `SELECT id, teacher_id, organization_id, full_name, email, subject, phone, created_at
+         FROM teachers WHERE id = $1 AND organization_id = $2`,
         [user.reference_id, user.organization_id]
       );
-
       profile = teacher.rows[0] || null;
     } else if (user.role === "student") {
       const student = await pool.query(
-        `SELECT
-          id,
-          student_id,
-          organization_id,
-          full_name,
-          email,
-          phone,
-          gender,
-          date_of_birth,
-          class_name,
-          class_id,
-          created_at
-        FROM students
-        WHERE id = $1 AND organization_id = $2`,
+        `SELECT id, student_id, organization_id, full_name, email, phone, gender, date_of_birth, class_name, class_id, created_at
+         FROM students WHERE id = $1 AND organization_id = $2`,
         [user.reference_id, user.organization_id]
       );
-
       profile = student.rows[0] || null;
     }
 
     if (!profile && user.role !== "admin") {
-      return res.status(403).json({
-        message: "The account profile could not be found.",
-      });
+      return res.status(403).json({ message: "The account profile could not be found." });
     }
 
     const token = jwt.sign(
@@ -124,12 +82,8 @@ const login = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({
-      message: "Server Error.",
-    });
+    res.status(500).json({ message: "Server Error." });
   }
 };
 
-module.exports = {
-  login,
-};
+module.exports = { login };
