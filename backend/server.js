@@ -13,8 +13,15 @@ const subjectRoutes = require("./routes/subjectRoutes");
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+const allowedOrigin = process.env.FRONTEND_URL?.trim();
+app.use(
+  cors(
+    allowedOrigin
+      ? { origin: allowedOrigin }
+      : { origin: true }
+  )
+);
+app.use(express.json({ limit: "1mb" }));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/organizations", organizationRoutes);
