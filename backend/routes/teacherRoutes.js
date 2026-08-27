@@ -1,11 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const {
-  authenticateToken,
-  authorizeRoles,
-} = require("../middleware/authMiddleware");
-
+const { authenticateToken, authorizeRoles } = require("../middleware/authMiddleware");
 const {
   getTeachers,
   addTeacher,
@@ -14,40 +10,12 @@ const {
   deleteTeacher,
 } = require("../controllers/teacherController");
 
-// Organization/admin access to teacher management
-router.get(
-  "/",
-  authenticateToken,
-  authorizeRoles("organization", "admin"),
-  getTeachers
-);
-
-router.post(
-  "/",
-  authenticateToken,
-  authorizeRoles("organization", "admin"),
-  addTeacher
-);
-
-router.get(
-  "/:id",
-  authenticateToken,
-  authorizeRoles("organization", "admin"),
-  getTeacherById
-);
-
-router.put(
-  "/:id",
-  authenticateToken,
-  authorizeRoles("organization", "admin"),
-  updateTeacher
-);
-
-router.delete(
-  "/:id",
-  authenticateToken,
-  authorizeRoles("organization", "admin"),
-  deleteTeacher
-);
+// Organization owns teacher administration. Platform-admin cross-organization
+// management will be added with the dedicated admin module.
+router.get("/", authenticateToken, authorizeRoles("organization"), getTeachers);
+router.post("/", authenticateToken, authorizeRoles("organization"), addTeacher);
+router.get("/:id", authenticateToken, authorizeRoles("organization"), getTeacherById);
+router.put("/:id", authenticateToken, authorizeRoles("organization"), updateTeacher);
+router.delete("/:id", authenticateToken, authorizeRoles("organization"), deleteTeacher);
 
 module.exports = router;
