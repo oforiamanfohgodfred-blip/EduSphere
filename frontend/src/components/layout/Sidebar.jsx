@@ -8,6 +8,7 @@ import {
   FaBullhorn,
   FaUser,
   FaSignOutAlt,
+  FaCheckCircle,
 } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
 
@@ -17,6 +18,7 @@ function Sidebar({ role = "teacher" }) {
   const teacherLinks = [
     { name: "Dashboard", path: "/teacher/dashboard", icon: <FaHome /> },
     { name: "Assignments", path: "/teacher/assignments", icon: <FaClipboardList /> },
+    { name: "Grading", path: "/teacher/grading", icon: <FaCheckCircle /> },
     { name: "Timetables", path: "/teacher/timetables", icon: <FaCalendarAlt /> },
     { name: "Exam Notifications", path: "/teacher/exams", icon: <FaBook /> },
     { name: "Resources", path: "/teacher/resources", icon: <FaFolderOpen /> },
