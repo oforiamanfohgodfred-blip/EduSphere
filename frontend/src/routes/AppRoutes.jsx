@@ -7,6 +7,7 @@ import OrganizationSuccess from "../pages/auth/OrganizationSuccess";
 import TeacherDashboard from "../pages/teacher/Dashboard";
 import TeacherClassWorkspace from "../pages/teacher/ClassWorkspace";
 import Assignments from "../pages/teacher/Assignments";
+import Grading from "../pages/teacher/Grading";
 import Timetables from "../pages/teacher/Timetables";
 import ExamNotifications from "../pages/teacher/ExamNotifications";
 import Resources from "../pages/teacher/Resources";
@@ -41,6 +42,7 @@ function AppRoutes() {
     <Route path="/teacher/dashboard" element={protectedPage("teacher", <TeacherDashboard />)} />
     <Route path="/teacher/classes/:id" element={protectedPage("teacher", <TeacherClassWorkspace />)} />
     <Route path="/teacher/assignments" element={protectedPage("teacher", <Assignments />)} />
+    <Route path="/teacher/grading" element={protectedPage("teacher", <Grading />)} />
     <Route path="/teacher/timetables" element={protectedPage("teacher", <Timetables />)} />
     <Route path="/teacher/exams" element={protectedPage("teacher", <ExamNotifications />)} />
     <Route path="/teacher/resources" element={protectedPage("teacher", <Resources />)} />
