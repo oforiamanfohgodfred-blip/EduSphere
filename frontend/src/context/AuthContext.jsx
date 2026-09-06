@@ -20,7 +20,7 @@ const buildUser = (data) => ({
   reference_id: data.profile?.id ?? data.reference_id ?? null,
 });
 
-export const AuthProvider = ({ children }) => {
+function AuthProvider({ children }) {
   const [user, setUser] = useState(readStoredUser);
   const [token, setToken] = useState(() => localStorage.getItem("token"));
 
@@ -29,7 +29,6 @@ export const AuthProvider = ({ children }) => {
       setToken(null);
       setUser(null);
     };
-
     window.addEventListener("auth:expired", handleExpiredSession);
     return () => window.removeEventListener("auth:expired", handleExpiredSession);
   }, []);
@@ -37,17 +36,12 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     const response = await api.post("/auth/login", { email, password });
     const data = response.data;
-
-    if (!data.token || !data.role) {
-      throw new Error("Invalid authentication response.");
-    }
-
+    if (!data.token || !data.role) throw new Error("Invalid authentication response.");
     const authenticatedUser = buildUser(data);
     localStorage.setItem("token", data.token);
     localStorage.setItem("user", JSON.stringify(authenticatedUser));
     setToken(data.token);
     setUser(authenticatedUser);
-
     return data;
   };
 
@@ -58,11 +52,8 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
-  return (
-    <AuthContext.Provider value={{ user, token, login, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
+  return <AuthContext.Provider value={{ user, token, login, logout }}>{children}</AuthContext.Provider>;
+}
 
+export default AuthProvider;
 export const useAuth = () => useContext(AuthContext);
