@@ -5,6 +5,7 @@ import RegisterOrganization from "../pages/auth/RegisterOrganization";
 import JoinOrganization from "../pages/auth/JoinOrganization";
 import OrganizationSuccess from "../pages/auth/OrganizationSuccess";
 import TeacherDashboard from "../pages/teacher/Dashboard";
+import TeacherClassWorkspace from "../pages/teacher/ClassWorkspace";
 import Assignments from "../pages/teacher/Assignments";
 import Timetables from "../pages/teacher/Timetables";
 import ExamNotifications from "../pages/teacher/ExamNotifications";
@@ -27,9 +28,7 @@ import Subjects from "../pages/organization/Subjects";
 import Settings from "../pages/organization/Settings";
 import ProtectedRoute from "../components/ProtectedRoute";
 
-const protectedPage = (role, element) => (
-  <ProtectedRoute role={role}>{element}</ProtectedRoute>
-);
+const protectedPage = (role, element) => <ProtectedRoute role={role}>{element}</ProtectedRoute>;
 
 function AppRoutes() {
   return (
@@ -41,6 +40,7 @@ function AppRoutes() {
       <Route path="/organization-success" element={<OrganizationSuccess />} />
 
       <Route path="/teacher/dashboard" element={protectedPage("teacher", <TeacherDashboard />)} />
+      <Route path="/teacher/classes/:id" element={protectedPage("teacher", <TeacherClassWorkspace />)} />
       <Route path="/teacher/assignments" element={protectedPage("teacher", <Assignments />)} />
       <Route path="/teacher/timetables" element={protectedPage("teacher", <Timetables />)} />
       <Route path="/teacher/exams" element={protectedPage("teacher", <ExamNotifications />)} />
