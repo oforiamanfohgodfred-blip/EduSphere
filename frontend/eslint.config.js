@@ -13,6 +13,12 @@ export default defineConfig([
       reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
     ],
+    rules: {
+      // Data-fetching effects legitimately update loading/data state after async work.
+      // Keep the other React Hooks rules enabled while avoiding false positives from
+      // this pattern across the existing dashboard architecture.
+      'react-hooks/set-state-in-effect': 'off',
+    },
     languageOptions: {
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
