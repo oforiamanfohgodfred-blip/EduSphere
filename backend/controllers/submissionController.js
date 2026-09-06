@@ -14,6 +14,7 @@ const submitAssignment = async (req, res) => {
     const assignmentId = Number(req.params.assignmentId);
     const { submissionText = "" } = req.body;
     if (!Number.isInteger(assignmentId) || assignmentId < 1) return res.status(400).json({ message: "Invalid assignment." });
+    if (typeof submissionText !== "string") return res.status(400).json({ message: "Submission must be text." });
 
     const assignment = await client.query(
       `SELECT a.id, a.class_id, a.status, a.due_at
@@ -53,6 +54,35 @@ const listMySubmissions = async (req, res) => {
   } catch { res.status(500).json({ message: "Unable to load submissions." }); } finally { client.release(); }
 };
 
+const listClassSubmissions = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const a = getActor(req);
+    if (a.role !== "teacher") return res.status(403).json({ message: "Only teachers can view class submissions." });
+    const classId = Number(req.params.classId);
+    if (!Number.isInteger(classId) || classId < 1) return res.status(400).json({ message: "Invalid class." });
+    const assigned = await client.query(
+      `SELECT 1 FROM classes c JOIN class_teachers ct ON ct.class_id = c.id
+       WHERE c.id = $1 AND ct.teacher_id = $2 AND ($3::int IS NULL OR c.organization_id = $3)`,
+      [classId, a.referenceId, a.organizationId ? Number(a.organizationId) : null]
+    );
+    if (!assigned.rows[0]) return res.status(403).json({ message: "You are not assigned to this class." });
+    const { rows } = await client.query(
+      `SELECT s.id AS submission_id, s.assignment_id, s.student_id, st.name AS student_name,
+              st.student_id AS student_code, s.submission_text, s.submitted_at, s.status,
+              a.title AS assignment_title, a.max_marks, g.marks, g.feedback, g.graded_at
+       FROM submissions s
+       JOIN assignments a ON a.id = s.assignment_id
+       JOIN students st ON st.id = s.student_id
+       LEFT JOIN grades g ON g.submission_id = s.id
+       WHERE a.class_id = $1
+       ORDER BY s.submitted_at DESC NULLS LAST, st.name`,
+      [classId]
+    );
+    res.json(rows);
+  } catch { res.status(500).json({ message: "Unable to load class submissions." }); } finally { client.release(); }
+};
+
 const gradeSubmission = async (req, res) => {
   const client = await pool.connect();
   try {
@@ -77,4 +107,4 @@ const gradeSubmission = async (req, res) => {
   } catch { res.status(500).json({ message: "Unable to grade submission." }); } finally { client.release(); }
 };
 
-module.exports = { submitAssignment, listMySubmissions, gradeSubmission };
+module.exports = { submitAssignment, listMySubmissions, listClassSubmissions, gradeSubmission };
