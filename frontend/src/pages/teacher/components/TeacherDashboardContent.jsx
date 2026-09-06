@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import api from "../../../services/api";
 
 function TeacherDashboardContent() {
@@ -8,7 +9,6 @@ function TeacherDashboardContent() {
 
   useEffect(() => {
     let active = true;
-
     const loadClasses = async () => {
       try {
         setLoading(true);
@@ -20,7 +20,6 @@ function TeacherDashboardContent() {
         if (active) setLoading(false);
       }
     };
-
     loadClasses();
     return () => { active = false; };
   }, []);
@@ -32,40 +31,29 @@ function TeacherDashboardContent() {
     <div>
       <h1>Teacher Dashboard</h1>
       <p className="dashboard-subtitle">Your assigned classes and connected learning spaces.</p>
-
-      {error && <div className="error-message">{error}</div>}
-
+      {error && <div className="error-message" role="alert">{error}</div>}
       <div className="stats-grid">
         <div className="stat-card"><h3>My Classes</h3><p>{loading ? "—" : classes.length}</p></div>
         <div className="stat-card"><h3>Students</h3><p>{loading ? "—" : studentCount}</p></div>
         <div className="stat-card"><h3>Subjects</h3><p>{loading ? "—" : subjectCount}</p></div>
       </div>
-
       <div className="dashboard-sections">
         <div className="section-card">
           <h2>My Learning Spaces</h2>
-          {loading ? (
-            <p>Loading your classes...</p>
-          ) : classes.length === 0 ? (
-            <p>No classes have been assigned to you yet.</p>
-          ) : (
+          {loading ? <p>Loading your classes...</p> : classes.length === 0 ? <p>No classes have been assigned to you yet.</p> : (
             <div className="class-list">
               {classes.map((item) => (
-                <div className="action-btn" key={item.id}>
+                <Link className="action-btn" key={item.id} to={`/teacher/classes/${item.id}`}>
                   <strong>{item.name}</strong>
                   <span>{item.code} · {item.student_count || 0} students · {item.subject_count || 0} subjects</span>
-                </div>
+                </Link>
               ))}
             </div>
           )}
         </div>
-
         <div className="section-card">
           <h2>Class access</h2>
-          <p>
-            This dashboard now uses live class assignments from the backend.
-            Class-level VLE tools will be opened through the dedicated teacher class workspace rather than fake dashboard actions.
-          </p>
+          <p>Select a class above to open its live VLE workspace for assignments, announcements and resources.</p>
         </div>
       </div>
     </div>
