@@ -22,8 +22,8 @@ const submitAssignment = async (req, res) => {
       `SELECT a.id, a.class_id, a.status, a.due_at, a.organization_id
        FROM assignments a
        JOIN students s ON s.class_id = a.class_id AND s.id = $2
-       WHERE a.id = $1`,
-      [assignmentId, a.referenceId]
+       WHERE a.id = $1 AND ($3::int IS NULL OR a.organization_id = $3)`,
+      [assignmentId, a.referenceId, a.organizationId ? Number(a.organizationId) : null]
     );
     if (!assignment.rows[0]) return res.status(404).json({ message: "Assignment not found or unavailable." });
     if (assignment.rows[0].status !== "published") return res.status(400).json({ message: "This assignment is not accepting submissions." });
@@ -50,8 +50,9 @@ const listMySubmissions = async (req, res) => {
       `SELECT s.*, a.title, a.max_marks, g.marks, g.feedback, g.graded_at
        FROM submissions s JOIN assignments a ON a.id = s.assignment_id
        LEFT JOIN grades g ON g.submission_id = s.id
-       WHERE s.student_id = $1 ORDER BY s.submitted_at DESC NULLS LAST`,
-      [a.referenceId]
+       WHERE s.student_id = $1 AND ($2::int IS NULL OR a.organization_id = $2)
+       ORDER BY s.submitted_at DESC NULLS LAST`,
+      [a.referenceId, a.organizationId ? Number(a.organizationId) : null]
     );
     res.json(rows);
   } catch { res.status(500).json({ message: "Unable to load submissions." }); } finally { client.release(); }
@@ -78,9 +79,9 @@ const listClassSubmissions = async (req, res) => {
        JOIN assignments a ON a.id = s.assignment_id
        JOIN students st ON st.id = s.student_id
        LEFT JOIN grades g ON g.submission_id = s.id
-       WHERE a.class_id = $1
+       WHERE a.class_id = $1 AND ($2::int IS NULL OR a.organization_id = $2)
        ORDER BY s.submitted_at DESC NULLS LAST, st.name`,
-      [classId]
+      [classId, a.organizationId ? Number(a.organizationId) : null]
     );
     res.json(rows);
   } catch { res.status(500).json({ message: "Unable to load class submissions." }); } finally { client.release(); }
@@ -95,9 +96,12 @@ const gradeSubmission = async (req, res) => {
     const marks = Number(req.body.marks);
     if (!Number.isInteger(submissionId) || !Number.isFinite(marks) || marks < 0) return res.status(400).json({ message: "Valid submission and marks are required." });
     const submission = await client.query(
-      `SELECT s.id, s.student_id, a.max_marks, a.class_id, a.organization_id FROM submissions s JOIN assignments a ON a.id = s.assignment_id
-       JOIN class_teachers ct ON ct.class_id = a.class_id AND ct.teacher_id = $2 WHERE s.id = $1`,
-      [submissionId, a.referenceId]
+      `SELECT s.id, s.student_id, a.max_marks, a.class_id, a.organization_id
+       FROM submissions s
+       JOIN assignments a ON a.id = s.assignment_id
+       JOIN class_teachers ct ON ct.class_id = a.class_id AND ct.teacher_id = $2
+       WHERE s.id = $1 AND ($3::int IS NULL OR a.organization_id = $3)`,
+      [submissionId, a.referenceId, a.organizationId ? Number(a.organizationId) : null]
     );
     if (!submission.rows[0]) return res.status(404).json({ message: "Submission not found or not assigned to you." });
     if (marks > Number(submission.rows[0].max_marks)) return res.status(400).json({ message: "Marks cannot exceed the assignment maximum." });
@@ -106,14 +110,22 @@ const gradeSubmission = async (req, res) => {
        ON CONFLICT (submission_id) DO UPDATE SET teacher_id = EXCLUDED.teacher_id, marks = EXCLUDED.marks, feedback = EXCLUDED.feedback, graded_at = CURRENT_TIMESTAMP RETURNING *`,
       [submissionId, a.referenceId, marks, req.body.feedback?.trim() || null]
     );
-    await notifyUser(client, {
-      organizationId: submission.rows[0].organization_id,
-      userId: (await client.query("SELECT id FROM users WHERE role='student' AND reference_id=$1 AND organization_id=$2", [submission.rows[0].student_id, submission.rows[0].organization_id])).rows[0]?.id,
-      type: "grade_returned",
-      title: "Assignment graded",
-      body: `Your submission has been graded: ${marks}/${submission.rows[0].max_marks}.`,
-      link: "/student/grades",
-    });
+
+    const studentUser = await client.query(
+      `SELECT id FROM users WHERE role = 'student' AND reference_id = $1 AND organization_id = $2 AND is_active = true`,
+      [submission.rows[0].student_id, submission.rows[0].organization_id]
+    );
+    if (studentUser.rows[0]) {
+      await notifyUser(client, {
+        organizationId: submission.rows[0].organization_id,
+        userId: studentUser.rows[0].id,
+        type: "grade_returned",
+        title: "Assignment graded",
+        body: `Your submission has been graded: ${marks}/${submission.rows[0].max_marks}.`,
+        link: "/student/grades",
+      });
+    }
+
     res.json(rows[0]);
   } catch { res.status(500).json({ message: "Unable to grade submission." }); } finally { client.release(); }
 };
