@@ -9,6 +9,7 @@ function Assignments() {
   const [form, setForm] = useState({ title: "", instructions: "", maxMarks: 100, dueAt: "", subjectId: "", status: "published" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [updatingId, setUpdatingId] = useState(null);
   const [error, setError] = useState("");
 
   const loadClasses = async () => {
@@ -44,8 +45,24 @@ function Assignments() {
     finally { setSaving(false); }
   };
 
+  const changeStatus = async (assignment, status) => {
+    try {
+      setUpdatingId(assignment.id); setError("");
+      await api.patch(`/vle/assignments/${assignment.id}`, {
+        title: assignment.title,
+        instructions: assignment.instructions || "",
+        maxMarks: Number(assignment.max_marks),
+        dueAt: assignment.due_at || undefined,
+        status,
+      });
+      await loadAssignments(selectedClass);
+    } catch (e) { setError(e.response?.data?.message || "Unable to update assignment status."); }
+    finally { setUpdatingId(null); }
+  };
+
   return <DashboardLayout role="teacher">
     <h1>Assignments</h1>
+    <p>Create, publish and close assignments for your assigned classes.</p>
     {error && <div className="error-message" role="alert">{error}</div>}
     <div className="section-card">
       <label htmlFor="assignment-class">Class</label>
@@ -60,10 +77,25 @@ function Assignments() {
         <textarea placeholder="Instructions" value={form.instructions} onChange={e => setForm({ ...form, instructions: e.target.value })} />
         <input type="number" min="1" placeholder="Maximum marks" value={form.maxMarks} onChange={e => setForm({ ...form, maxMarks: e.target.value })} required />
         <input type="datetime-local" value={form.dueAt} onChange={e => setForm({ ...form, dueAt: e.target.value })} />
-        <button className="login-btn" disabled={saving}>{saving ? "Publishing..." : "Publish Assignment"}</button>
+        <label htmlFor="assignment-status">Initial status</label>
+        <select id="assignment-status" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
+          <option value="draft">Save as draft</option>
+          <option value="published">Publish now</option>
+        </select>
+        <button className="login-btn" disabled={saving}>{saving ? "Saving..." : form.status === "draft" ? "Save Draft" : "Publish Assignment"}</button>
       </form>
     </div>
-    <div className="section-card"><h2>Published Assignments</h2>{assignments.length ? assignments.map(a => <article key={a.id}><h3>{a.title}</h3><p>{a.instructions || "No instructions."}</p><small>{a.max_marks} marks{a.due_at ? ` · Due ${new Date(a.due_at).toLocaleString()}` : ""}</small><hr /></article>) : <p>No published assignments for this class.</p>}</div>
+    <div className="section-card">
+      <h2>Assignments</h2>
+      {assignments.length ? assignments.map(a => <article key={a.id}>
+        <h3>{a.title}</h3>
+        <p>{a.instructions || "No instructions."}</p>
+        <small>{a.max_marks} marks{a.due_at ? ` · Due ${new Date(a.due_at).toLocaleString()}` : ""} · Status: <strong>{a.status}</strong></small>
+        {a.status === "draft" && <button type="button" className="login-btn" disabled={updatingId === a.id} onClick={() => changeStatus(a, "published")}>{updatingId === a.id ? "Publishing..." : "Publish"}</button>}
+        {a.status === "published" && <button type="button" className="login-btn" disabled={updatingId === a.id} onClick={() => changeStatus(a, "closed")}>{updatingId === a.id ? "Closing..." : "Close Assignment"}</button>}
+        <hr />
+      </article>) : <p>No assignments for this class.</p>}
+    </div>
   </DashboardLayout>;
 }
 export default Assignments;
