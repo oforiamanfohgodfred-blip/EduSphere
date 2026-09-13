@@ -4,7 +4,7 @@ const notifyClassUsers = async (client, { organizationId, classId, type, title, 
      FROM users u
      WHERE u.organization_id = $1
        AND u.is_active = TRUE
-       AND u.id <> COALESCE($4, -1)
+       AND u.id <> COALESCE($3, -1)
        AND (
          (u.role = 'student' AND EXISTS (
            SELECT 1 FROM students s WHERE s.id = u.reference_id AND s.organization_id = $1 AND s.class_id = $2
@@ -16,7 +16,7 @@ const notifyClassUsers = async (client, { organizationId, classId, type, title, 
            WHERE t.id = u.reference_id AND t.organization_id = $1 AND ct.class_id = $2
          ))
        )`,
-    [organizationId, classId, type, excludeUserId]
+    [organizationId, classId, excludeUserId]
   );
 
   if (!rows.length) return 0;
