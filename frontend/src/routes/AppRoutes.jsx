@@ -16,6 +16,7 @@ import Profile from "../pages/teacher/Profile";
 import StudentDashboard from "../pages/student/Dashboard";
 import StudentClassWorkspace from "../pages/student/ClassWorkspace";
 import StudentAssignments from "../pages/student/Assignments";
+import StudentGrades from "../pages/student/Grades";
 import StudentTimetables from "../pages/student/Timetables";
 import StudentExamNotifications from "../pages/student/ExamNotifications";
 import StudentAnnouncements from "../pages/student/Announcements";
@@ -51,6 +52,7 @@ function AppRoutes() {
     <Route path="/student/dashboard" element={protectedPage("student", <StudentDashboard />)} />
     <Route path="/student/classes/:id" element={protectedPage("student", <StudentClassWorkspace />)} />
     <Route path="/student/assignments" element={protectedPage("student", <StudentAssignments />)} />
+    <Route path="/student/grades" element={protectedPage("student", <StudentGrades />)} />
     <Route path="/student/timetables" element={protectedPage("student", <StudentTimetables />)} />
     <Route path="/student/exams" element={protectedPage("student", <StudentExamNotifications />)} />
     <Route path="/student/announcements" element={protectedPage("student", <StudentAnnouncements />)} />
