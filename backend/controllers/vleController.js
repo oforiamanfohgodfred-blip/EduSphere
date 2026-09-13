@@ -55,14 +55,17 @@ const requireClassAccess = async (client, req, classId, write = false) => {
 const listClassAssignments = async (req, res) => {
   const client = await pool.connect();
   try {
+    const actor = getActor(req);
     const access = await requireClassAccess(client, req, req.params.classId);
     if (!access.ok) return res.status(access.status).json({ message: access.message });
+
+    const draftFilter = actor.role === "student" ? "AND a.status = 'published'" : "";
     const { rows } = await client.query(
       `SELECT a.*, s.name AS subject_name, t.name AS teacher_name
        FROM assignments a
        LEFT JOIN subjects s ON s.id = a.subject_id
        JOIN teachers t ON t.id = a.teacher_id
-       WHERE a.class_id = $1 AND a.status <> 'draft'
+       WHERE a.class_id = $1 ${draftFilter}
        ORDER BY a.due_at NULLS LAST, a.created_at DESC`,
       [req.params.classId]
     );
@@ -84,7 +87,7 @@ const createAssignment = async (req, res) => {
 
     if (subjectId) {
       const subject = await client.query(
-        `SELECT 1 FROM class_subjects WHERE class_id = $1 AND subject_id = $2`,
+        "SELECT 1 FROM class_subjects WHERE class_id = $1 AND subject_id = $2",
         [classId, subjectId]
       );
       if (!subject.rows[0]) return res.status(400).json({ message: "Subject is not offered in this class." });
@@ -108,7 +111,7 @@ const createAssignment = async (req, res) => {
         type: "assignment_published",
         title: `New assignment: ${assignment.title}`,
         body: assignment.due_at ? `A new assignment has been published. Due ${new Date(assignment.due_at).toLocaleString()}.` : "A new assignment has been published.",
-        link: `/student/assignments`,
+        link: "/student/assignments",
         excludeUserId: actor.userId,
       });
     }
@@ -118,4 +121,53 @@ const createAssignment = async (req, res) => {
   finally { client.release(); }
 };
 
-module.exports = { listClassAssignments, createAssignment, getTeacherClassIds };
+const updateAssignment = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const actor = getActor(req);
+    if (actor.role !== "teacher") return res.status(403).json({ message: "Only teachers can update assignments." });
+    const assignmentResult = await client.query(
+      `SELECT a.*, c.organization_id FROM assignments a JOIN classes c ON c.id = a.class_id WHERE a.id = $1`,
+      [req.params.assignmentId]
+    );
+    const assignment = assignmentResult.rows[0];
+    if (!assignment) return res.status(404).json({ message: "Assignment not found." });
+    if (actor.organizationId && Number(assignment.organization_id) !== Number(actor.organizationId)) return res.status(403).json({ message: "You cannot access another organization." });
+    if (Number(assignment.teacher_id) !== Number(actor.referenceId)) return res.status(403).json({ message: "You can only manage your own assignments." });
+    if (assignment.status === "closed") return res.status(409).json({ message: "Closed assignments cannot be changed." });
+
+    const { title, instructions, maxMarks, dueAt, status } = req.body;
+    const nextStatus = status ?? assignment.status;
+    if (!["draft", "published", "closed"].includes(nextStatus)) return res.status(400).json({ message: "Invalid assignment status." });
+    if (!title?.trim()) return res.status(400).json({ message: "Title is required." });
+    const parsedMaxMarks = Number(maxMarks ?? assignment.max_marks);
+    if (!Number.isFinite(parsedMaxMarks) || parsedMaxMarks <= 0) return res.status(400).json({ message: "Maximum marks must be greater than zero." });
+    if (dueAt && Number.isNaN(Date.parse(dueAt))) return res.status(400).json({ message: "Due date is invalid." });
+    if (assignment.status === "published" && nextStatus === "draft") return res.status(409).json({ message: "Published assignments cannot be moved back to draft." });
+
+    const { rows } = await client.query(
+      `UPDATE assignments
+       SET title = $1, instructions = $2, max_marks = $3, due_at = $4, status = $5, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $6 RETURNING *`,
+      [title.trim(), instructions?.trim() || null, parsedMaxMarks, dueAt || null, nextStatus, assignment.id]
+    );
+    const updated = rows[0];
+
+    if (assignment.status !== "published" && updated.status === "published") {
+      await notifyClassUsers(client, {
+        organizationId: assignment.organization_id,
+        classId: assignment.class_id,
+        type: "assignment_published",
+        title: `New assignment: ${updated.title}`,
+        body: updated.due_at ? `A new assignment has been published. Due ${new Date(updated.due_at).toLocaleString()}.` : "A new assignment has been published.",
+        link: "/student/assignments",
+        excludeUserId: actor.userId,
+      });
+    }
+
+    res.json(updated);
+  } catch (error) { res.status(500).json({ message: "Unable to update assignment." }); }
+  finally { client.release(); }
+};
+
+module.exports = { listClassAssignments, createAssignment, updateAssignment, getTeacherClassIds };
