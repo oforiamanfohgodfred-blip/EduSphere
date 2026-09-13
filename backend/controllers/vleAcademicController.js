@@ -1,6 +1,7 @@
 const pool = require("../config/db");
+const { notifyClassUsers } = require("../utils/notificationService");
 
-const actor = (req) => ({ role: req.user?.role, referenceId: req.user?.referenceId ?? req.user?.reference_id, organizationId: req.user?.organizationId ?? req.user?.organization_id });
+const actor = (req) => ({ role: req.user?.role, userId: req.user?.userId || req.user?.id, referenceId: req.user?.referenceId ?? req.user?.reference_id, organizationId: req.user?.organizationId ?? req.user?.organization_id });
 
 async function access(client, req, classId, write = false) {
   const a = actor(req);
@@ -81,9 +82,9 @@ const createExam = async (req, res) => {
     const a = actor(req);
     if (!["teacher", "organization"].includes(a.role)) return res.status(403).json({ message: "You cannot create exams." });
     const { classId, subjectId, teacherId, title, description, startsAt, durationMinutes, maxMarks = 100 } = req.body;
+    if (!classId || !title?.trim() || !startsAt || !durationMinutes) return res.status(400).json({ message: "Class, title, start time and duration are required." });
     const allowed = await access(client, req, classId, true);
     if (!allowed.ok) return res.status(allowed.code).json({ message: allowed.message });
-    if (!classId || !title?.trim() || !startsAt || !durationMinutes) return res.status(400).json({ message: "Class, title, start time and duration are required." });
     if (subjectId) {
       const r = await client.query("SELECT 1 FROM class_subjects WHERE class_id=$1 AND subject_id=$2", [classId, subjectId]);
       if (!r.rows[0]) return res.status(400).json({ message: "Subject is not assigned to this class." });
@@ -93,8 +94,23 @@ const createExam = async (req, res) => {
       const r = await client.query("SELECT 1 FROM class_teachers WHERE class_id=$1 AND teacher_id=$2", [classId, selectedTeacher]);
       if (!r.rows[0]) return res.status(400).json({ message: "Teacher is not assigned to this class." });
     }
-    const { rows } = await client.query(`INSERT INTO exams (organization_id,class_id,subject_id,teacher_id,title,description,starts_at,duration_minutes,max_marks) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`, [allowed.klass.organization_id,classId,subjectId||null,selectedTeacher,title.trim(),description?.trim()||null,startsAt,Number(durationMinutes),Number(maxMarks)||100]);
-    res.status(201).json(rows[0]);
+    const parsedDuration = Number(durationMinutes);
+    const parsedMaxMarks = Number(maxMarks);
+    if (!Number.isInteger(parsedDuration) || parsedDuration <= 0) return res.status(400).json({ message: "Exam duration must be a positive whole number of minutes." });
+    if (!Number.isFinite(parsedMaxMarks) || parsedMaxMarks <= 0) return res.status(400).json({ message: "Maximum marks must be greater than zero." });
+    if (Number.isNaN(Date.parse(startsAt))) return res.status(400).json({ message: "Exam start time is invalid." });
+    const { rows } = await client.query(`INSERT INTO exams (organization_id,class_id,subject_id,teacher_id,title,description,starts_at,duration_minutes,max_marks) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`, [allowed.klass.organization_id,classId,subjectId||null,selectedTeacher,title.trim(),description?.trim()||null,startsAt,parsedDuration,parsedMaxMarks]);
+    const exam = rows[0];
+    await notifyClassUsers(client, {
+      organizationId: allowed.klass.organization_id,
+      classId,
+      type: "exam_created",
+      title: `New exam: ${exam.title}`,
+      body: `An exam has been scheduled for ${new Date(exam.starts_at).toLocaleString()} (${exam.duration_minutes} minutes).`,
+      link: `/student/exams`,
+      excludeUserId: a.userId,
+    });
+    res.status(201).json(exam);
   } catch { res.status(500).json({ message: "Unable to create exam." }); } finally { client.release(); }
 };
 
