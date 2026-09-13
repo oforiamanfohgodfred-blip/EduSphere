@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import api from "../../services/api";
+import "../../styles/assignment-workspace.css";
 
 const initialForm = { title: "", instructions: "", maxMarks: 100, dueAt: "", subjectId: "", status: "published" };
 
@@ -92,31 +93,16 @@ function Assignments() {
   return (
     <DashboardLayout role="teacher">
       <div className="page-header">
-        <div>
-          <span className="section-kicker">TEACHING WORKSPACE</span>
-          <h1>Assignments</h1>
-          <p>Create, publish and close work for your assigned classes.</p>
-        </div>
+        <div><span className="section-kicker">TEACHING WORKSPACE</span><h1>Assignments</h1><p>Create, publish and close work for your assigned classes.</p></div>
       </div>
-
       {error && <div className="error-message" role="alert">{error}</div>}
-
       <div className="assignment-toolbar section-card">
-        <div>
-          <span className="section-kicker">ACTIVE CLASS</span>
-          <strong>{classes.find((item) => String(item.id) === String(selectedClass))?.name || "Choose a class"}</strong>
-        </div>
-        <select id="assignment-class" value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} disabled={loading}>
-          <option value="">Select class</option>
-          {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+        <div><span className="section-kicker">ACTIVE CLASS</span><strong>{classes.find((item) => String(item.id) === String(selectedClass))?.name || "Choose a class"}</strong></div>
+        <select id="assignment-class" value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} disabled={loading}><option value="">Select class</option>{classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
       </div>
-
       <div className="assignment-layout">
         <section className="section-card assignment-form-card">
-          <div className="card-heading">
-            <div><span className="section-kicker">NEW WORK</span><h2>Create Assignment</h2><p>Prepare work privately or publish it immediately.</p></div>
-          </div>
+          <div className="card-heading"><div><span className="section-kicker">NEW WORK</span><h2>Create Assignment</h2><p>Prepare work privately or publish it immediately.</p></div></div>
           <form className="assignment-form" onSubmit={createAssignment}>
             <div className="input-group"><label htmlFor="assignment-title">Title</label><input id="assignment-title" placeholder="e.g. Algebra Practice" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required /></div>
             <div className="input-group"><label htmlFor="assignment-subject">Subject</label><select id="assignment-subject" value={form.subjectId} onChange={(e) => setForm({ ...form, subjectId: e.target.value })}><option value="">General / no subject</option>{subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}{subject.code ? ` (${subject.code})` : ""}</option>)}</select></div>
@@ -127,21 +113,18 @@ function Assignments() {
             <button className="login-btn" disabled={saving || !selectedClass}>{saving ? "Saving..." : form.status === "draft" ? "Save Draft" : "Publish Assignment"}</button>
           </form>
         </section>
-
         <section className="section-card assignment-list-card">
           <div className="card-heading"><div><span className="section-kicker">CLASS WORK</span><h2>Assignments</h2><p>{assignments.length} assignment{assignments.length === 1 ? "" : "s"} in this class.</p></div></div>
-          {assignments.length ? <div className="assignment-list">{assignments.map((a) => (
-            <article className="assignment-item" key={a.id}>
-              <div className="assignment-item-top"><div><span className={`status-pill status-${a.status}`}>{a.status}</span><h3>{a.title}</h3></div><strong>{a.max_marks} marks</strong></div>
-              <p>{a.instructions || "No instructions provided."}</p>
-              <div className="assignment-meta"><span>{a.subject_name || "General"}</span><span>{a.due_at ? `Due ${new Date(a.due_at).toLocaleString()}` : "No due date"}</span></div>
-              <div className="assignment-actions">
-                {a.status === "draft" && <button type="button" className="action-btn" disabled={updatingId === a.id} onClick={() => changeStatus(a, "published")}>{updatingId === a.id ? "Publishing..." : "Publish"}</button>}
-                {a.status === "published" && <button type="button" className="secondary-button" disabled={updatingId === a.id} onClick={() => changeStatus(a, "closed")}>{updatingId === a.id ? "Closing..." : "Close Assignment"}</button>}
-                {a.status === "closed" && <span className="closed-note">Closed — no further changes</span>}
-              </div>
-            </article>
-          ))}</div> : <div className="empty-state"><strong>No assignments yet</strong><span>Create the first piece of work for this class.</span></div>}
+          {assignments.length ? <div className="assignment-list">{assignments.map((a) => <article className="assignment-item" key={a.id}>
+            <div className="assignment-item-top"><div><span className={`status-pill status-${a.status}`}>{a.status}</span><h3>{a.title}</h3></div><strong>{a.max_marks} marks</strong></div>
+            <p>{a.instructions || "No instructions provided."}</p>
+            <div className="assignment-meta"><span>{a.subject_name || "General"}</span><span>{a.due_at ? `Due ${new Date(a.due_at).toLocaleString()}` : "No due date"}</span></div>
+            <div className="assignment-actions">
+              {a.status === "draft" && <button type="button" className="action-btn" disabled={updatingId === a.id} onClick={() => changeStatus(a, "published")}>{updatingId === a.id ? "Publishing..." : "Publish"}</button>}
+              {a.status === "published" && <button type="button" className="secondary-button" disabled={updatingId === a.id} onClick={() => changeStatus(a, "closed")}>{updatingId === a.id ? "Closing..." : "Close Assignment"}</button>}
+              {a.status === "closed" && <span className="closed-note">Closed — no further changes</span>}
+            </div>
+          </article>)}</div> : <div className="empty-state"><strong>No assignments yet</strong><span>Create the first piece of work for this class.</span></div>}
         </section>
       </div>
     </DashboardLayout>
