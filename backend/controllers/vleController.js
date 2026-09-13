@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const { notifyClassUsers } = require("../utils/notificationService");
 
 const getActor = (req) => ({
   userId: req.user?.userId || req.user?.id,
@@ -28,7 +29,7 @@ const requireClassAccess = async (client, req, classId, write = false) => {
     return { ok: false, status: 403, message: "You cannot access another organization." };
   }
 
-  if (actor.role === "organization") return { ok: !write || true, klass };
+  if (actor.role === "organization") return { ok: true, klass };
 
   if (actor.role === "teacher") {
     const assigned = await client.query(
@@ -77,6 +78,7 @@ const createAssignment = async (req, res) => {
     if (actor.role !== "teacher") return res.status(403).json({ message: "Only teachers can create assignments." });
     const { classId, subjectId, title, instructions, maxMarks, dueAt, status = "draft" } = req.body;
     if (!classId || !title?.trim()) return res.status(400).json({ message: "Class and title are required." });
+    if (!["draft", "published", "closed"].includes(status)) return res.status(400).json({ message: "Invalid assignment status." });
     const access = await requireClassAccess(client, req, classId, true);
     if (!access.ok) return res.status(access.status).json({ message: access.message });
 
@@ -88,12 +90,30 @@ const createAssignment = async (req, res) => {
       if (!subject.rows[0]) return res.status(400).json({ message: "Subject is not offered in this class." });
     }
 
+    const parsedMaxMarks = Number(maxMarks) || 100;
+    if (parsedMaxMarks <= 0) return res.status(400).json({ message: "Maximum marks must be greater than zero." });
+    if (dueAt && Number.isNaN(Date.parse(dueAt))) return res.status(400).json({ message: "Due date is invalid." });
+
     const { rows } = await client.query(
       `INSERT INTO assignments (organization_id, class_id, subject_id, teacher_id, title, instructions, max_marks, due_at, status)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-      [access.klass.organization_id, classId, subjectId || null, actor.referenceId, title.trim(), instructions?.trim() || null, Number(maxMarks) || 100, dueAt || null, status]
+      [access.klass.organization_id, classId, subjectId || null, actor.referenceId, title.trim(), instructions?.trim() || null, parsedMaxMarks, dueAt || null, status]
     );
-    res.status(201).json(rows[0]);
+    const assignment = rows[0];
+
+    if (assignment.status === "published") {
+      await notifyClassUsers(client, {
+        organizationId: access.klass.organization_id,
+        classId,
+        type: "assignment_published",
+        title: `New assignment: ${assignment.title}`,
+        body: assignment.due_at ? `A new assignment has been published. Due ${new Date(assignment.due_at).toLocaleString()}.` : "A new assignment has been published.",
+        link: `/student/assignments`,
+        excludeUserId: actor.userId,
+      });
+    }
+
+    res.status(201).json(assignment);
   } catch (error) { res.status(500).json({ message: "Unable to create assignment." }); }
   finally { client.release(); }
 };
