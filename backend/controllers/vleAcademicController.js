@@ -37,9 +37,13 @@ const createTimetable = async (req, res) => {
     const a = actor(req);
     if (!["teacher", "organization"].includes(a.role)) return res.status(403).json({ message: "You cannot manage the timetable." });
     const { classId, subjectId, teacherId, dayOfWeek, startTime, endTime, room } = req.body;
+    if (!classId || !dayOfWeek || !startTime || !endTime) return res.status(400).json({ message: "Class, day and times are required." });
     const allowed = await access(client, req, classId, true);
     if (!allowed.ok) return res.status(allowed.code).json({ message: allowed.message });
-    if (!classId || !dayOfWeek || !startTime || !endTime) return res.status(400).json({ message: "Class, day and times are required." });
+    const day = Number(dayOfWeek);
+    if (!Number.isInteger(day) || day < 1 || day > 7) return res.status(400).json({ message: "Day of week must be between 1 and 7." });
+    const timePattern = /^([01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d)?$/;
+    if (!timePattern.test(startTime) || !timePattern.test(endTime) || startTime >= endTime) return res.status(400).json({ message: "Start and end times must be valid, with the end time after the start time." });
     if (subjectId) {
       const r = await client.query("SELECT 1 FROM class_subjects WHERE class_id=$1 AND subject_id=$2", [classId, subjectId]);
       if (!r.rows[0]) return res.status(400).json({ message: "Subject is not assigned to this class." });
@@ -50,7 +54,13 @@ const createTimetable = async (req, res) => {
       const r = await client.query("SELECT 1 FROM class_teachers WHERE class_id=$1 AND teacher_id=$2", [classId, selectedTeacher]);
       if (!r.rows[0]) return res.status(400).json({ message: "Teacher is not assigned to this class." });
     }
-    const { rows } = await client.query(`INSERT INTO timetables (organization_id,class_id,subject_id,teacher_id,day_of_week,start_time,end_time,room) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`, [allowed.klass.organization_id,classId,subjectId||null,selectedTeacher,dayOfWeek,startTime,endTime,room?.trim()||null]);
+    const classConflict = await client.query(`SELECT id FROM timetables WHERE organization_id=$1 AND class_id=$2 AND day_of_week=$3 AND start_time < $5::time AND end_time > $4::time LIMIT 1`, [allowed.klass.organization_id, classId, day, startTime, endTime]);
+    if (classConflict.rows[0]) return res.status(409).json({ message: "This class already has a timetable entry during that time." });
+    if (selectedTeacher) {
+      const teacherConflict = await client.query(`SELECT id FROM timetables WHERE organization_id=$1 AND teacher_id=$2 AND day_of_week=$3 AND start_time < $5::time AND end_time > $4::time LIMIT 1`, [allowed.klass.organization_id, selectedTeacher, day, startTime, endTime]);
+      if (teacherConflict.rows[0]) return res.status(409).json({ message: "This teacher is already scheduled during that time." });
+    }
+    const { rows } = await client.query(`INSERT INTO timetables (organization_id,class_id,subject_id,teacher_id,day_of_week,start_time,end_time,room) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`, [allowed.klass.organization_id,classId,subjectId||null,selectedTeacher,day,startTime,endTime,room?.trim()||null]);
     res.status(201).json(rows[0]);
   } catch { res.status(500).json({ message: "Unable to create timetable entry." }); } finally { client.release(); }
 };
