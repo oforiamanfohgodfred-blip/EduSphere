@@ -78,4 +78,29 @@ const registerOrganization = async (req, res) => {
   } finally { client.release(); }
 };
 
-module.exports = { registerOrganization };
+const getOrganizationMonitoring = async (req, res) => {
+  try {
+    const orgId = Number(req.user?.organization_id || req.user?.organizationId);
+    if (!orgId) return res.status(400).json({ message: "Organization context is required." });
+
+    const result = await pool.query(
+      `SELECT
+         (SELECT COUNT(*)::int FROM teachers WHERE organization_id = $1) AS teachers,
+         (SELECT COUNT(*)::int FROM students WHERE organization_id = $1) AS students,
+         (SELECT COUNT(*)::int FROM classes WHERE organization_id = $1) AS classes,
+         (SELECT COUNT(*)::int FROM subjects WHERE organization_id = $1) AS subjects,
+         (SELECT COUNT(*)::int FROM assignments WHERE organization_id = $1 AND status = 'published') AS published_assignments,
+         (SELECT COUNT(*)::int FROM submissions s JOIN assignments a ON a.id = s.assignment_id WHERE a.organization_id = $1 AND s.status = 'submitted') AS submitted_work,
+         (SELECT COUNT(*)::int FROM submissions s JOIN assignments a ON a.id = s.assignment_id LEFT JOIN grades g ON g.submission_id = s.id WHERE a.organization_id = $1 AND s.status = 'submitted' AND g.id IS NULL) AS awaiting_grading,
+         (SELECT COUNT(*)::int FROM exams WHERE organization_id = $1 AND starts_at >= CURRENT_TIMESTAMP) AS upcoming_exams`,
+      [orgId]
+    );
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Unable to load organization monitoring data." });
+  }
+};
+
+module.exports = { registerOrganization, getOrganizationMonitoring };
