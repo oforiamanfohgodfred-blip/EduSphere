@@ -9,6 +9,7 @@ import {
   FaUser,
   FaSignOutAlt,
   FaCheckCircle,
+  FaGraduationCap,
 } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
 
@@ -29,6 +30,7 @@ function Sidebar({ role = "teacher" }) {
   const studentLinks = [
     { name: "Dashboard", path: "/student/dashboard", icon: <FaHome /> },
     { name: "Assignments", path: "/student/assignments", icon: <FaClipboardList /> },
+    { name: "My Grades", path: "/student/grades", icon: <FaGraduationCap /> },
     { name: "Timetables", path: "/student/timetables", icon: <FaCalendarAlt /> },
     { name: "Exam Notifications", path: "/student/exams", icon: <FaBook /> },
     { name: "Resources", path: "/student/resources", icon: <FaFolderOpen /> },
