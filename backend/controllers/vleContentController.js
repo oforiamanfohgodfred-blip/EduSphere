@@ -1,6 +1,8 @@
 const pool = require("../config/db");
+const { notifyClassUsers } = require("../utils/notificationService");
 
 const actor = (req) => ({
+  userId: req.user?.userId || req.user?.id,
   role: req.user?.role,
   referenceId: req.user?.referenceId ?? req.user?.reference_id,
   organizationId: req.user?.organizationId ?? req.user?.organization_id,
@@ -45,6 +47,7 @@ const createAnnouncement = async (req, res) => {
     const access = await classAccess(client, req, classId, true);
     if (!access.ok) return res.status(access.code).json({ message: access.message });
     const { rows } = await client.query(`INSERT INTO announcements (organization_id, class_id, teacher_id, title, body) VALUES ($1,$2,$3,$4,$5) RETURNING *`, [access.klass.organization_id, classId, a.referenceId, title.trim(), body.trim()]);
+    await notifyClassUsers(client, { organizationId: access.klass.organization_id, classId, type: "announcement", title: `New announcement: ${title.trim()}`, body: body.trim(), link: `/student/announcements`, excludeUserId: a.userId });
     res.status(201).json(rows[0]);
   } catch { res.status(500).json({ message: "Unable to create announcement." }); } finally { client.release(); }
 };
@@ -73,6 +76,7 @@ const createResource = async (req, res) => {
       if (!subject.rows[0]) return res.status(400).json({ message: "Subject is not offered in this class." });
     }
     const { rows } = await client.query(`INSERT INTO resources (organization_id, class_id, subject_id, teacher_id, title, description, resource_type, resource_url) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`, [access.klass.organization_id, classId, subjectId || null, a.referenceId, title.trim(), description?.trim() || null, resourceType, resourceUrl.trim()]);
+    await notifyClassUsers(client, { organizationId: access.klass.organization_id, classId, type: "resource", title: `New resource: ${title.trim()}`, body: description?.trim() || "A new class resource is available.", link: `/student/resources`, excludeUserId: a.userId });
     res.status(201).json(rows[0]);
   } catch { res.status(500).json({ message: "Unable to create resource." }); } finally { client.release(); }
 };
