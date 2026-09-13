@@ -1,7 +1,7 @@
 const express = require("express");
 
 const router = express.Router();
-const { registerOrganization } = require("../controllers/organizationController");
+const { registerOrganization, getOrganizationMonitoring } = require("../controllers/organizationController");
 const { authenticateToken, authorizeRoles } = require("../middleware/authMiddleware");
 const pool = require("../config/db");
 
@@ -39,5 +39,7 @@ router.get("/me", authenticateToken, authorizeRoles("organization"), (req, res) 
     user: req.user,
   });
 });
+
+router.get("/monitoring", authenticateToken, authorizeRoles("organization"), getOrganizationMonitoring);
 
 module.exports = router;
