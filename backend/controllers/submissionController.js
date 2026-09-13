@@ -1,6 +1,8 @@
 const pool = require("../config/db");
+const { notifyUser } = require("../utils/notificationService");
 
 const getActor = (req) => ({
+  userId: req.user?.userId || req.user?.id,
   role: req.user?.role,
   referenceId: req.user?.referenceId ?? req.user?.reference_id,
   organizationId: req.user?.organizationId ?? req.user?.organization_id,
@@ -17,7 +19,7 @@ const submitAssignment = async (req, res) => {
     if (typeof submissionText !== "string") return res.status(400).json({ message: "Submission must be text." });
 
     const assignment = await client.query(
-      `SELECT a.id, a.class_id, a.status, a.due_at
+      `SELECT a.id, a.class_id, a.status, a.due_at, a.organization_id
        FROM assignments a
        JOIN students s ON s.class_id = a.class_id AND s.id = $2
        WHERE a.id = $1`,
@@ -25,6 +27,7 @@ const submitAssignment = async (req, res) => {
     );
     if (!assignment.rows[0]) return res.status(404).json({ message: "Assignment not found or unavailable." });
     if (assignment.rows[0].status !== "published") return res.status(400).json({ message: "This assignment is not accepting submissions." });
+    if (!submissionText.trim()) return res.status(400).json({ message: "Submission cannot be empty." });
 
     const { rows } = await client.query(
       `INSERT INTO submissions (assignment_id, student_id, submission_text, submitted_at, status)
@@ -92,7 +95,7 @@ const gradeSubmission = async (req, res) => {
     const marks = Number(req.body.marks);
     if (!Number.isInteger(submissionId) || !Number.isFinite(marks) || marks < 0) return res.status(400).json({ message: "Valid submission and marks are required." });
     const submission = await client.query(
-      `SELECT s.id, a.max_marks, a.class_id FROM submissions s JOIN assignments a ON a.id = s.assignment_id
+      `SELECT s.id, s.student_id, a.max_marks, a.class_id, a.organization_id FROM submissions s JOIN assignments a ON a.id = s.assignment_id
        JOIN class_teachers ct ON ct.class_id = a.class_id AND ct.teacher_id = $2 WHERE s.id = $1`,
       [submissionId, a.referenceId]
     );
@@ -103,6 +106,14 @@ const gradeSubmission = async (req, res) => {
        ON CONFLICT (submission_id) DO UPDATE SET teacher_id = EXCLUDED.teacher_id, marks = EXCLUDED.marks, feedback = EXCLUDED.feedback, graded_at = CURRENT_TIMESTAMP RETURNING *`,
       [submissionId, a.referenceId, marks, req.body.feedback?.trim() || null]
     );
+    await notifyUser(client, {
+      organizationId: submission.rows[0].organization_id,
+      userId: (await client.query("SELECT id FROM users WHERE role='student' AND reference_id=$1 AND organization_id=$2", [submission.rows[0].student_id, submission.rows[0].organization_id])).rows[0]?.id,
+      type: "grade_returned",
+      title: "Assignment graded",
+      body: `Your submission has been graded: ${marks}/${submission.rows[0].max_marks}.`,
+      link: "/student/grades",
+    });
     res.json(rows[0]);
   } catch { res.status(500).json({ message: "Unable to grade submission." }); } finally { client.release(); }
 };
