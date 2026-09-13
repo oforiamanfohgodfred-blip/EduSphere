@@ -1,0 +1,16 @@
+.assignment-toolbar{display:flex;align-items:center;justify-content:space-between;gap:20px;background:linear-gradient(135deg,#f8fbff,#fff)}
+.assignment-toolbar strong{display:block;margin-top:4px;color:#0c274c;font-family:Poppins,sans-serif;font-size:1rem}
+.assignment-toolbar select{min-width:240px}
+.assignment-layout{display:grid;grid-template-columns:minmax(320px,.85fr) minmax(0,1.35fr);gap:20px;align-items:start}
+.assignment-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 14px}
+.assignment-form .input-group{margin-bottom:15px}.assignment-wide{grid-column:1/-1}.assignment-form .login-btn{grid-column:1/-1;margin-top:4px}
+.assignment-list{display:flex;flex-direction:column;gap:12px}
+.assignment-item{padding:18px;border:1px solid #e2e8f1;border-radius:15px;background:#fbfdff;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}
+.assignment-item:hover{transform:translateY(-2px);border-color:#c9d9ed;box-shadow:0 9px 24px rgba(25,49,81,.07)}
+.assignment-item-top{display:flex;justify-content:space-between;gap:15px;align-items:flex-start}.assignment-item h3{margin-top:8px;font-size:1rem}
+.assignment-item-top>strong{color:#155bb2;font-size:.8rem;white-space:nowrap}.assignment-item>p{margin:9px 0 12px;color:#71829a;font-size:.82rem;line-height:1.55}
+.assignment-meta{display:flex;flex-wrap:wrap;gap:7px 14px;color:#7b899c;font-size:.7rem;font-weight:650}.assignment-actions{display:flex;align-items:center;gap:9px;margin-top:14px}
+.assignment-actions .action-btn,.assignment-actions .secondary-button{width:auto;box-shadow:none}.status-pill{display:inline-flex;padding:4px 8px;border-radius:999px;font-size:.62rem;font-weight:800;text-transform:capitalize}
+.status-draft{color:#7a5311;background:#fff4d8}.status-published{color:#14764c;background:#e8f8ef}.status-closed{color:#657386;background:#edf0f4}.closed-note{color:#7a8797;font-size:.72rem;font-weight:700}
+@media(max-width:1100px){.assignment-layout{grid-template-columns:1fr}}
+@media(max-width:680px){.assignment-form{grid-template-columns:1fr}.assignment-wide,.assignment-form .login-btn{grid-column:auto}.assignment-toolbar{align-items:stretch;flex-direction:column}.assignment-toolbar select{min-width:0;width:100%}}
