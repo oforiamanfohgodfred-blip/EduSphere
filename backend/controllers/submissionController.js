@@ -46,7 +46,7 @@ const submitAssignment = async (req, res) => {
       [assignmentId, Number(a.referenceId), submissionText.trim()]
     );
     res.status(201).json(rows[0]);
-  } catch { res.status(500).json({ message: "Unable to submit assignment." }); } finally { client.release(); }
+  } catch (error) { console.error(error); res.status(500).json({ message: "Unable to submit assignment." }); } finally { client.release(); }
 };
 
 const listMySubmissions = async (req, res) => {
@@ -63,7 +63,7 @@ const listMySubmissions = async (req, res) => {
       [Number(a.referenceId), Number(a.organizationId)]
     );
     res.json(rows);
-  } catch { res.status(500).json({ message: "Unable to load submissions." }); } finally { client.release(); }
+  } catch (error) { console.error(error); res.status(500).json({ message: "Unable to load submissions." }); } finally { client.release(); }
 };
 
 const listClassSubmissions = async (req, res) => {
@@ -80,7 +80,7 @@ const listClassSubmissions = async (req, res) => {
     );
     if (!assigned.rows[0]) return res.status(403).json({ message: "You are not assigned to this class." });
     const { rows } = await client.query(
-      `SELECT s.id AS submission_id, s.assignment_id, s.student_id, st.name AS student_name,
+      `SELECT s.id AS submission_id, s.assignment_id, s.student_id, st.full_name AS student_name,
               st.student_id AS student_code, s.submission_text, s.submitted_at, s.status,
               a.title AS assignment_title, a.max_marks, g.marks, g.feedback, g.graded_at
        FROM submissions s
@@ -88,11 +88,11 @@ const listClassSubmissions = async (req, res) => {
        JOIN students st ON st.id = s.student_id
        LEFT JOIN grades g ON g.submission_id = s.id
        WHERE a.class_id = $1 AND a.organization_id = $2 AND st.organization_id = $2
-       ORDER BY s.submitted_at DESC NULLS LAST, st.name`,
+       ORDER BY s.submitted_at DESC NULLS LAST, st.full_name`,
       [classId, Number(a.organizationId)]
     );
     res.json(rows);
-  } catch { res.status(500).json({ message: "Unable to load class submissions." }); } finally { client.release(); }
+  } catch (error) { console.error(error); res.status(500).json({ message: "Unable to load class submissions." }); } finally { client.release(); }
 };
 
 const gradeSubmission = async (req, res) => {
@@ -135,7 +135,7 @@ const gradeSubmission = async (req, res) => {
     }
 
     res.json(rows[0]);
-  } catch { res.status(500).json({ message: "Unable to grade submission." }); } finally { client.release(); }
+  } catch (error) { console.error(error); res.status(500).json({ message: "Unable to grade submission." }); } finally { client.release(); }
 };
 
 module.exports = { submitAssignment, listMySubmissions, listClassSubmissions, gradeSubmission };

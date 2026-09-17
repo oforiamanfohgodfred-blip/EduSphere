@@ -1,8 +1,17 @@
 const pool = require("../config/db");
-const bcrypt = require("bcrypt");
 
 const getOrganizationId = (req) => Number(req.user?.organization_id);
 const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
+
+const validateTeacherSubject = async (client, organizationId, subject) => {
+  const value = String(subject || "").trim();
+  if (!value) return null;
+  const result = await client.query(
+    "SELECT name FROM subjects WHERE organization_id=$1 AND LOWER(name)=LOWER($2)",
+    [organizationId, value]
+  );
+  return result.rows[0]?.name || null;
+};
 
 const getTeachers = async (req, res) => {
   try {
@@ -22,13 +31,15 @@ const addTeacher = async (req, res) => {
   try {
     await client.query("BEGIN");
     const organizationId = getOrganizationId(req);
-    const { full_name, subject, phone, password } = req.body;
+    const { full_name, phone, password } = req.body;
     const email = normalizeEmail(req.body.email);
 
     if (!organizationId) return await rollbackWith(client, res, 400, "Organization context is required.");
     if (!full_name || !email || !password) return await rollbackWith(client, res, 400, "Full name, email and password are required.");
 
-    // Lock the organization row so ID allocation is serialized per organization.
+    const validatedSubject = await validateTeacherSubject(client, organizationId, req.body.subject);
+    if (!validatedSubject) return await rollbackWith(client, res, 400, "Teaching subject must be selected from your organization's subjects.");
+
     const organization = await client.query(
       "SELECT id, organization_code FROM organizations WHERE id=$1 FOR UPDATE",
       [organizationId]
@@ -51,7 +62,7 @@ const addTeacher = async (req, res) => {
       `INSERT INTO teachers (teacher_id,organization_id,full_name,email,subject,phone,password)
        VALUES ($1,$2,$3,$4,$5,$6,$7)
        RETURNING id,teacher_id,organization_id,full_name,email,subject,phone,created_at`,
-      [teacher_id, organizationId, full_name.trim(), email, subject || null, phone || null, hashedPassword]
+      [teacher_id, organizationId, full_name.trim(), email, validatedSubject, phone || null, hashedPassword]
     );
     const teacher = teacherResult.rows[0];
 
@@ -88,10 +99,13 @@ const updateTeacher = async (req, res) => {
   try {
     await client.query("BEGIN");
     const organizationId = getOrganizationId(req);
-    const { full_name, subject, phone } = req.body;
+    const { full_name, phone } = req.body;
     const email = normalizeEmail(req.body.email);
     if (!organizationId) return await rollbackWith(client, res, 400, "Organization context is required.");
     if (!full_name || !email) return await rollbackWith(client, res, 400, "Full name and email are required.");
+
+    const validatedSubject = await validateTeacherSubject(client, organizationId, req.body.subject);
+    if (!validatedSubject) return await rollbackWith(client, res, 400, "Teaching subject must be selected from your organization's subjects.");
 
     const existing = await client.query("SELECT id FROM teachers WHERE LOWER(email)=LOWER($1) AND id<>$2", [email, req.params.id]);
     const existingUser = await client.query("SELECT id FROM users WHERE LOWER(email)=LOWER($1) AND NOT (role='teacher' AND reference_id=$2)", [email, req.params.id]);
@@ -101,7 +115,7 @@ const updateTeacher = async (req, res) => {
       `UPDATE teachers SET full_name=$1,email=$2,subject=$3,phone=$4
        WHERE id=$5 AND organization_id=$6
        RETURNING id,teacher_id,organization_id,full_name,email,subject,phone,created_at`,
-      [full_name.trim(), email, subject || null, phone || null, req.params.id, organizationId]
+      [full_name.trim(), email, validatedSubject, phone || null, req.params.id, organizationId]
     );
     if (!result.rows.length) return await rollbackWith(client, res, 404, "Teacher not found.");
 

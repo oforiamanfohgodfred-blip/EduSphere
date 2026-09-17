@@ -27,9 +27,9 @@ const listTimetable = async (req, res) => {
   try {
     const a = await access(client, req, req.params.classId);
     if (!a.ok) return res.status(a.code).json({ message: a.message });
-    const { rows } = await client.query(`SELECT t.*, s.name AS subject_name, tr.name AS teacher_name FROM timetables t LEFT JOIN subjects s ON s.id=t.subject_id LEFT JOIN teachers tr ON tr.id=t.teacher_id WHERE t.class_id=$1 ORDER BY t.day_of_week, t.start_time`, [req.params.classId]);
+    const { rows } = await client.query(`SELECT t.*, s.name AS subject_name, tr.full_name AS teacher_name FROM timetables t LEFT JOIN subjects s ON s.id=t.subject_id LEFT JOIN teachers tr ON tr.id=t.teacher_id WHERE t.class_id=$1 ORDER BY t.day_of_week, t.start_time`, [req.params.classId]);
     res.json(rows);
-  } catch { res.status(500).json({ message: "Unable to load timetable." }); } finally { client.release(); }
+  } catch (error) { console.error(error); res.status(500).json({ message: "Unable to load timetable." }); } finally { client.release(); }
 };
 
 const createTimetable = async (req, res) => {
@@ -63,7 +63,7 @@ const createTimetable = async (req, res) => {
     }
     const { rows } = await client.query(`INSERT INTO timetables (organization_id,class_id,subject_id,teacher_id,day_of_week,start_time,end_time,room) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`, [allowed.klass.organization_id,classId,subjectId||null,selectedTeacher,day,startTime,endTime,room?.trim()||null]);
     res.status(201).json(rows[0]);
-  } catch { res.status(500).json({ message: "Unable to create timetable entry." }); } finally { client.release(); }
+  } catch (error) { console.error(error); res.status(500).json({ message: "Unable to create timetable entry." }); } finally { client.release(); }
 };
 
 const listExams = async (req, res) => {
@@ -71,9 +71,9 @@ const listExams = async (req, res) => {
   try {
     const a = await access(client, req, req.params.classId);
     if (!a.ok) return res.status(a.code).json({ message: a.message });
-    const { rows } = await client.query(`SELECT e.*, s.name AS subject_name, t.name AS teacher_name FROM exams e LEFT JOIN subjects s ON s.id=e.subject_id LEFT JOIN teachers t ON t.id=e.teacher_id WHERE e.class_id=$1 ORDER BY e.starts_at`, [req.params.classId]);
+    const { rows } = await client.query(`SELECT e.*, s.name AS subject_name, t.full_name AS teacher_name FROM exams e LEFT JOIN subjects s ON s.id=e.subject_id LEFT JOIN teachers t ON t.id=e.teacher_id WHERE e.class_id=$1 ORDER BY e.starts_at`, [req.params.classId]);
     res.json(rows);
-  } catch { res.status(500).json({ message: "Unable to load exams." }); } finally { client.release(); }
+  } catch (error) { console.error(error); res.status(500).json({ message: "Unable to load exams." }); } finally { client.release(); }
 };
 
 const createExam = async (req, res) => {
@@ -111,7 +111,7 @@ const createExam = async (req, res) => {
       excludeUserId: a.userId,
     });
     res.status(201).json(exam);
-  } catch { res.status(500).json({ message: "Unable to create exam." }); } finally { client.release(); }
+  } catch (error) { console.error(error); res.status(500).json({ message: "Unable to create exam." }); } finally { client.release(); }
 };
 
 module.exports = { listTimetable, createTimetable, listExams, createExam };

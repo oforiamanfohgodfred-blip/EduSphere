@@ -61,7 +61,7 @@ const listClassAssignments = async (req, res) => {
 
     const draftFilter = actor.role === "student" ? "AND a.status = 'published'" : "";
     const { rows } = await client.query(
-      `SELECT a.*, s.name AS subject_name, t.name AS teacher_name
+      `SELECT a.*, s.name AS subject_name, t.full_name AS teacher_name
        FROM assignments a
        LEFT JOIN subjects s ON s.id = a.subject_id
        JOIN teachers t ON t.id = a.teacher_id
@@ -70,7 +70,7 @@ const listClassAssignments = async (req, res) => {
       [req.params.classId]
     );
     res.json(rows);
-  } catch (error) { res.status(500).json({ message: "Unable to load assignments." }); }
+  } catch (error) { console.error(error); res.status(500).json({ message: "Unable to load assignments." }); }
   finally { client.release(); }
 };
 
@@ -117,7 +117,7 @@ const createAssignment = async (req, res) => {
     }
 
     res.status(201).json(assignment);
-  } catch (error) { res.status(500).json({ message: "Unable to create assignment." }); }
+  } catch (error) { console.error(error); res.status(500).json({ message: "Unable to create assignment." }); }
   finally { client.release(); }
 };
 
@@ -166,7 +166,7 @@ const updateAssignment = async (req, res) => {
     }
 
     res.json(updated);
-  } catch (error) { res.status(500).json({ message: "Unable to update assignment." }); }
+  } catch (error) { console.error(error); res.status(500).json({ message: "Unable to update assignment." }); }
   finally { client.release(); }
 };
 

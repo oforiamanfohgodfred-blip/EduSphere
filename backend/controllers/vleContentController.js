@@ -32,9 +32,9 @@ const listAnnouncements = async (req, res) => {
   try {
     const access = await classAccess(client, req, req.params.classId);
     if (!access.ok) return res.status(access.code).json({ message: access.message });
-    const { rows } = await client.query(`SELECT a.*, t.name AS teacher_name FROM announcements a JOIN teachers t ON t.id = a.teacher_id WHERE a.class_id = $1 ORDER BY a.created_at DESC`, [req.params.classId]);
+    const { rows } = await client.query(`SELECT a.*, t.full_name AS teacher_name FROM announcements a JOIN teachers t ON t.id = a.teacher_id WHERE a.class_id = $1 ORDER BY a.created_at DESC`, [req.params.classId]);
     res.json(rows);
-  } catch { res.status(500).json({ message: "Unable to load announcements." }); } finally { client.release(); }
+  } catch (error) { console.error(error); res.status(500).json({ message: "Unable to load announcements." }); } finally { client.release(); }
 };
 
 const createAnnouncement = async (req, res) => {
@@ -49,7 +49,7 @@ const createAnnouncement = async (req, res) => {
     const { rows } = await client.query(`INSERT INTO announcements (organization_id, class_id, teacher_id, title, body) VALUES ($1,$2,$3,$4,$5) RETURNING *`, [access.klass.organization_id, classId, a.referenceId, title.trim(), body.trim()]);
     await notifyClassUsers(client, { organizationId: access.klass.organization_id, classId, type: "announcement", title: `New announcement: ${title.trim()}`, body: body.trim(), link: `/student/announcements`, excludeUserId: a.userId });
     res.status(201).json(rows[0]);
-  } catch { res.status(500).json({ message: "Unable to create announcement." }); } finally { client.release(); }
+  } catch (error) { console.error(error); res.status(500).json({ message: "Unable to create announcement." }); } finally { client.release(); }
 };
 
 const listResources = async (req, res) => {
@@ -57,9 +57,9 @@ const listResources = async (req, res) => {
   try {
     const access = await classAccess(client, req, req.params.classId);
     if (!access.ok) return res.status(access.code).json({ message: access.message });
-    const { rows } = await client.query(`SELECT r.*, s.name AS subject_name, t.name AS teacher_name FROM resources r LEFT JOIN subjects s ON s.id = r.subject_id JOIN teachers t ON t.id = r.teacher_id WHERE r.class_id = $1 ORDER BY r.created_at DESC`, [req.params.classId]);
+    const { rows } = await client.query(`SELECT r.*, s.name AS subject_name, t.full_name AS teacher_name FROM resources r LEFT JOIN subjects s ON s.id = r.subject_id JOIN teachers t ON t.id = r.teacher_id WHERE r.class_id = $1 ORDER BY r.created_at DESC`, [req.params.classId]);
     res.json(rows);
-  } catch { res.status(500).json({ message: "Unable to load resources." }); } finally { client.release(); }
+  } catch (error) { console.error(error); res.status(500).json({ message: "Unable to load resources." }); } finally { client.release(); }
 };
 
 const createResource = async (req, res) => {
@@ -78,7 +78,7 @@ const createResource = async (req, res) => {
     const { rows } = await client.query(`INSERT INTO resources (organization_id, class_id, subject_id, teacher_id, title, description, resource_type, resource_url) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`, [access.klass.organization_id, classId, subjectId || null, a.referenceId, title.trim(), description?.trim() || null, resourceType, resourceUrl.trim()]);
     await notifyClassUsers(client, { organizationId: access.klass.organization_id, classId, type: "resource", title: `New resource: ${title.trim()}`, body: description?.trim() || "A new class resource is available.", link: `/student/resources`, excludeUserId: a.userId });
     res.status(201).json(rows[0]);
-  } catch { res.status(500).json({ message: "Unable to create resource." }); } finally { client.release(); }
+  } catch (error) { console.error(error); res.status(500).json({ message: "Unable to create resource." }); } finally { client.release(); }
 };
 
 module.exports = { listAnnouncements, createAnnouncement, listResources, createResource };
