@@ -37,8 +37,11 @@ const login = async (req, res) => {
       profile = result.rows[0] || null;
     } else if (user.role === "student") {
       const result = await pool.query(
-        `SELECT id, student_id, organization_id, full_name, email, phone, gender, date_of_birth, class_id, created_at
-         FROM students WHERE id = $1 AND organization_id = $2`, [user.reference_id, user.organization_id]
+        `SELECT s.id, s.student_id, s.organization_id, s.full_name, s.email, s.phone,
+                s.gender, s.date_of_birth, s.class_id, c.name AS class_name, s.created_at
+         FROM students s
+         LEFT JOIN classes c ON c.id = s.class_id AND c.organization_id = s.organization_id
+         WHERE s.id = $1 AND s.organization_id = $2`, [user.reference_id, user.organization_id]
       );
       profile = result.rows[0] || null;
     }

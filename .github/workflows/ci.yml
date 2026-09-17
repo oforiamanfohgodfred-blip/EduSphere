@@ -36,4 +36,10 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
-      - run: node --check server.js
+      - name: Syntax check backend JavaScript
+        shell: bash
+        run: |
+          set -e
+          find . -name '*.js' -not -path './node_modules/*' -print0 | while IFS= read -r -d '' file; do
+            node --check "$file"
+          done
