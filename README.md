@@ -76,7 +76,7 @@ npm run dev
 
 ### 2. Database
 
-Create the PostgreSQL database named for your environment, then apply the SQL schema/migration files in `backend/database/` and `backend/migrations/` in the project’s intended setup order. The class chat migration is `backend/database/migrations/005_create_class_chat.sql`.
+Create the PostgreSQL database named for your environment, then apply the SQL schema/migration files in `backend/database/` and `backend/migrations/` in the project’s intended setup order. The V1 class chat migration is `backend/migrations/005_create_class_chat.sql`.
 
 ### 3. Frontend
 
