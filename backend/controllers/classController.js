@@ -4,13 +4,63 @@ const organizationId = (req) => Number(req.user?.organization_id);
 const teacherId = (req) => Number(req.user?.reference_id);
 const studentId = (req) => Number(req.user?.reference_id);
 
+const normalizeIds = (value) => [...new Set(
+  (Array.isArray(value) ? value : [])
+    .map(Number)
+    .filter((id) => Number.isInteger(id) && id > 0)
+)];
+
+const syncClassMemberships = async (client, classId, orgId, teacherIds, subjectIds) => {
+  if (Array.isArray(teacherIds)) {
+    const ids = normalizeIds(teacherIds);
+    const valid = await client.query(
+      "SELECT id FROM teachers WHERE organization_id=$1 AND id=ANY($2::int[])",
+      [orgId, ids]
+    );
+    if (valid.rows.length !== ids.length) {
+      const error = new Error("One or more teachers are invalid for this organization.");
+      error.status = 400;
+      throw error;
+    }
+    await client.query("DELETE FROM class_teachers WHERE class_id=$1", [classId]);
+    for (const id of ids) {
+      await client.query(
+        "INSERT INTO class_teachers (class_id,teacher_id) VALUES ($1,$2)",
+        [classId, id]
+      );
+    }
+  }
+
+  if (Array.isArray(subjectIds)) {
+    const ids = normalizeIds(subjectIds);
+    const valid = await client.query(
+      "SELECT id FROM subjects WHERE organization_id=$1 AND id=ANY($2::int[])",
+      [orgId, ids]
+    );
+    if (valid.rows.length !== ids.length) {
+      const error = new Error("One or more subjects are invalid for this organization.");
+      error.status = 400;
+      throw error;
+    }
+    await client.query("DELETE FROM class_subjects WHERE class_id=$1", [classId]);
+    for (const id of ids) {
+      await client.query(
+        "INSERT INTO class_subjects (class_id,subject_id) VALUES ($1,$2)",
+        [classId, id]
+      );
+    }
+  }
+};
+
 const getClasses = async (req, res) => {
   try {
     const orgId = organizationId(req);
     if (!orgId) return res.status(400).json({ message: "Organization context is required." });
     const result = await pool.query(`SELECT c.id, c.organization_id, c.name, c.code, c.description, c.academic_year, c.created_at,
       COUNT(DISTINCT s.id)::int AS student_count, COUNT(DISTINCT ct.teacher_id)::int AS teacher_count,
-      COUNT(DISTINCT cs.subject_id)::int AS subject_count
+      COUNT(DISTINCT cs.subject_id)::int AS subject_count,
+      COALESCE(array_agg(DISTINCT ct.teacher_id) FILTER (WHERE ct.teacher_id IS NOT NULL), ARRAY[]::int[]) AS teacher_ids,
+      COALESCE(array_agg(DISTINCT cs.subject_id) FILTER (WHERE cs.subject_id IS NOT NULL), ARRAY[]::int[]) AS subject_ids
       FROM classes c LEFT JOIN students s ON s.class_id=c.id LEFT JOIN class_teachers ct ON ct.class_id=c.id
       LEFT JOIN class_subjects cs ON cs.class_id=c.id WHERE c.organization_id=$1 GROUP BY c.id ORDER BY c.name ASC`, [orgId]);
     res.json(result.rows);
@@ -45,37 +95,57 @@ const getStudentClasses = async (req, res) => {
 };
 
 const addClass = async (req, res) => {
+  const client = await pool.connect();
   try {
-    const orgId = organizationId(req), { name, code, description, academic_year } = req.body;
-    if (!orgId) return res.status(400).json({ message: "Organization context is required." });
-    if (!name?.trim() || !code?.trim()) return res.status(400).json({ message: "Class name and code are required." });
-    const result = await pool.query(`INSERT INTO classes (organization_id,name,code,description,academic_year)
+    await client.query("BEGIN");
+    const orgId = organizationId(req);
+    const { name, code, description, academic_year, teacher_ids, subject_ids } = req.body;
+    if (!orgId) return await rollbackWith(client, res, 400, "Organization context is required.");
+    if (!name?.trim() || !code?.trim()) return await rollbackWith(client, res, 400, "Class name and code are required.");
+
+    const result = await client.query(`INSERT INTO classes (organization_id,name,code,description,academic_year)
       VALUES ($1,$2,$3,$4,$5) RETURNING id,organization_id,name,code,description,academic_year,created_at`,
       [orgId,name.trim(),code.trim().toUpperCase(),description?.trim()||null,academic_year?.trim()||null]);
-    res.status(201).json({...result.rows[0],student_count:0,teacher_count:0,subject_count:0});
+
+    await syncClassMemberships(client, result.rows[0].id, orgId, teacher_ids, subject_ids);
+    await client.query("COMMIT");
+
+    res.status(201).json({
+      ...result.rows[0],
+      student_count: 0,
+      teacher_count: normalizeIds(teacher_ids).length,
+      subject_count: normalizeIds(subject_ids).length,
+      teacher_ids: normalizeIds(teacher_ids),
+      subject_ids: normalizeIds(subject_ids),
+    });
   } catch (error) {
+    await client.query("ROLLBACK");
+    if (error.status === 400) return res.status(400).json({ message: error.message });
     if (error.code === "23505") return res.status(400).json({ message: "A class with this name or code already exists." });
     console.error(error); res.status(500).json({ message: "Failed to add class." });
-  }
+  } finally { client.release(); }
 };
 
 const updateClass = async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const orgId = organizationId(req), { name, code, description, academic_year } = req.body;
-    if (!orgId) { await client.query("ROLLBACK"); return res.status(400).json({ message: "Organization context is required." }); }
-    if (!name?.trim() || !code?.trim()) { await client.query("ROLLBACK"); return res.status(400).json({ message: "Class name and code are required." }); }
+    const orgId = organizationId(req), { name, code, description, academic_year, teacher_ids, subject_ids } = req.body;
+    if (!orgId) return await rollbackWith(client, res, 400, "Organization context is required.");
+    if (!name?.trim() || !code?.trim()) return await rollbackWith(client, res, 400, "Class name and code are required.");
     const result = await client.query(`UPDATE classes SET name=$1,code=$2,description=$3,academic_year=$4
       WHERE id=$5 AND organization_id=$6 RETURNING id,organization_id,name,code,description,academic_year,created_at`,
       [name.trim(),code.trim().toUpperCase(),description?.trim()||null,academic_year?.trim()||null,req.params.id,orgId]);
-    if (!result.rows.length) { await client.query("ROLLBACK"); return res.status(404).json({ message: "Class not found." }); }
+    if (!result.rows.length) return await rollbackWith(client, res, 404, "Class not found.");
+
+    await syncClassMemberships(client, req.params.id, orgId, teacher_ids, subject_ids);
     // Keep the legacy display field synchronized with the authoritative class_id.
     await client.query("UPDATE students SET class_name=$1 WHERE class_id=$2 AND organization_id=$3", [result.rows[0].name, req.params.id, orgId]);
     await client.query("COMMIT");
     res.json(result.rows[0]);
   } catch (error) {
     await client.query("ROLLBACK");
+    if (error.status === 400) return res.status(400).json({ message: error.message });
     if (error.code === "23505") return res.status(400).json({ message: "A class with this name or code already exists." });
     console.error(error); res.status(500).json({ message: "Failed to update class." });
   } finally { client.release(); }
@@ -143,6 +213,11 @@ const deleteClass = async (req,res) => {
     const className=classResult.rows[0].name; await client.query("UPDATE students SET class_id=NULL,class_name=NULL WHERE class_id=$1 AND organization_id=$2",[req.params.id,orgId]);
     await client.query("DELETE FROM classes WHERE id=$1 AND organization_id=$2",[req.params.id,orgId]); await client.query("COMMIT"); res.json({message:`Class ${className} deleted successfully.`});
   } catch(error){await client.query("ROLLBACK");console.error(error);res.status(500).json({message:"Failed to delete class."});} finally{client.release();}
+};
+
+const rollbackWith = async (client, res, status, message) => {
+  await client.query("ROLLBACK");
+  return res.status(status).json({ message });
 };
 
 module.exports={getClasses,getTeacherClasses,getStudentClasses,addClass,updateClass,getClassDetails,getTeacherClassDetails,getStudentClassDetails,replaceClassTeachers,replaceClassSubjects,deleteClass};
