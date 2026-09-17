@@ -52,7 +52,10 @@ function ClassChat({ classId }) {
       setSending(true);
       setError("");
       const response = await api.post(`/vle/classes/${classId}/chat`, { message: text });
-      setMessages((current) => [...current, response.data].slice(-100));
+      setMessages((current) => {
+        if (current.some((item) => Number(item.id) === Number(response.data.id))) return current;
+        return [...current, response.data].slice(-100);
+      });
       setMessage("");
     } catch (requestError) {
       setError(requestError.response?.data?.message || "Unable to send your message.");
@@ -76,7 +79,7 @@ function ClassChat({ classId }) {
           <h2>Class Chat</h2>
           <p>Talk with the people connected to this class.</p>
         </div>
-        <span className="class-chat-live">● Live</span>
+        <span className="class-chat-live">● Auto-refresh</span>
       </div>
 
       {error && <div className="class-chat-error" role="alert">{error}</div>}
