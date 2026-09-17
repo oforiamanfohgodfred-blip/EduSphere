@@ -14,6 +14,7 @@ const vleContentRoutes = require("./routes/vleContentRoutes");
 const vleAcademicRoutes = require("./routes/vleAcademicRoutes");
 const vleNotificationRoutes = require("./routes/vleNotificationRoutes");
 const submissionRoutes = require("./routes/submissionRoutes");
+const classChatRoutes = require("./routes/classChatRoutes");
 const app = express();
 const isProduction = process.env.NODE_ENV === "production";
 const allowedOrigin = process.env.FRONTEND_URL?.trim();
@@ -33,6 +34,7 @@ app.use("/api/vle", vleContentRoutes);
 app.use("/api/vle", vleAcademicRoutes);
 app.use("/api/vle", vleNotificationRoutes);
 app.use("/api/vle", submissionRoutes);
+app.use("/api/vle", classChatRoutes);
 app.get("/", (req, res) => res.json({ status: "ok", service: "EduSphere Backend" }));
 app.use((err, req, res, next) => {
   console.error(err);
