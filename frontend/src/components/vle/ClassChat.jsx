@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../services/api";
 import "../../styles/class-chat.css";
@@ -13,7 +13,7 @@ function ClassChat({ classId }) {
   const messagesRef = useRef(null);
   const activeRef = useRef(true);
 
-  const loadMessages = async (showLoading = false) => {
+  const loadMessages = useCallback(async (showLoading = false) => {
     try {
       if (showLoading) setLoading(true);
       const response = await api.get(`/vle/classes/${classId}/chat?limit=100`);
@@ -26,7 +26,7 @@ function ClassChat({ classId }) {
     } finally {
       if (activeRef.current && showLoading) setLoading(false);
     }
-  };
+  }, [classId]);
 
   useEffect(() => {
     activeRef.current = true;
@@ -36,7 +36,7 @@ function ClassChat({ classId }) {
       activeRef.current = false;
       window.clearInterval(interval);
     };
-  }, [classId]);
+  }, [loadMessages]);
 
   useEffect(() => {
     const container = messagesRef.current;
