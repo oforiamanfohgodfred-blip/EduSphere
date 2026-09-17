@@ -10,7 +10,8 @@ EduSphere V1.0 is a full-stack Virtual Learning Environment (VLE) for organizati
 - Organization-managed teachers and students
 - Classes, subjects, class membership, and teacher assignment
 - Teacher and student authentication with JWT/bcrypt-backed accounts
-- VLE class workspaces
+- Connected VLE class workspaces
+- Class chat with protected membership access and automatic refresh
 - Assignments with draft, published, and closed states
 - Student submissions, teacher grading, marks, and feedback
 - Announcements and learning resources
@@ -20,6 +21,10 @@ EduSphere V1.0 is a full-stack Virtual Learning Environment (VLE) for organizati
 - Organization academic monitoring and live counts
 - Authenticated teacher/student profiles and account identity
 - Responsive, polished dashboard UI
+
+## Chat in V1
+
+Class Chat is available directly inside teacher and student class workspaces. Messages are stored per organization and class, and only the organization, assigned teachers, or enrolled students for that class can access the conversation. The V1 interface refreshes automatically every five seconds and supports normal messages up to 2,000 characters.
 
 ## Project structure
 
@@ -71,7 +76,7 @@ npm run dev
 
 ### 2. Database
 
-Create the PostgreSQL database named for your environment, then apply the SQL schema/migration files in `backend/database/` and `backend/migrations/` in the project’s intended setup order.
+Create the PostgreSQL database named for your environment, then apply the SQL schema/migration files in `backend/database/` and `backend/migrations/` in the project’s intended setup order. The class chat migration is `backend/database/migrations/005_create_class_chat.sql`.
 
 ### 3. Frontend
 
@@ -101,4 +106,4 @@ cd ../backend && node --check server.js
 
 ## V2 direction
 
-Features intentionally outside the V1 release boundary can be added in V2 without changing the V1 organization → teacher → class → student academic workflow.
+Features intentionally outside the V1 release boundary can be added in V2 without changing the V1 organization → teacher → class → student academic workflow. More advanced real-time collaboration, such as WebSocket messaging, file sharing in chat, and built-in video meetings, can build on the V1 chat foundation.
